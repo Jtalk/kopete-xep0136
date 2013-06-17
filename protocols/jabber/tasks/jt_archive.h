@@ -123,7 +123,7 @@ protected:
 
     QDomElement uniformPrefsSetting();
 
-    bool parsePerfs(QDomElement);
+    bool parsePerfs(const QDomElement &);
 private:
     /**
      * \brief initMetaEnums extracts enumerations information from the Qt meta system.
