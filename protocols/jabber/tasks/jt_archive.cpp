@@ -18,6 +18,27 @@
 #include "xmpp_xmlcommon.h"
 #include "xmpp_client.h"
 
+/// Let's have some fun! Using macro concatenation and Qt's metasystem to convert string
+/// representation of the enum value
+#define getEnumData(enumName, keyName, method) static_cast<enumName>( m_ ## enumName ## Enum. ## method ## ( keyName ));
+#define getEnumKey(enumName, keyName) getEnumData(enumName, keyName, keyToValue)
+#define getEnumValue(enumName, keyName) getEnumData(enumName, keyName, valueToKey)
+
+/// We need capitalized properties names for QMetaEnum
+inline QString capitalize(QString str)
+{
+    str = str.toLower();
+    str[0] = str[0].toUpper();
+    return str;
+}
+
+/// Since enums in C++ are extremly dumb and the language itself gives us no way to check
+/// their casting properly, we need this nail.
+#define validateEnum(enumName, value) m_ ## enumName ## Enum.valueToKey(value) != -1
+#define setEnumValue(enumName, value) if (validateEnum(enumName,value)) { m_ ## enumName ## = value; } \
+    else { qDebug() << "In " << __FILE__ << ":" << __LINE__ << " error: wrong enum, " << (int)value; }
+
+
 bool JT_Archive::hasValidNS(QDomElement e)
 {
     bool found = false;
@@ -71,44 +92,18 @@ bool JT_Archive::parsePerfs(const QDomElement &e)
         if(current.isNull()) {
             continue;
         }
-
-        if(current.tagName() == name) {
-            if(found)
-                *found = true;
-            return i;
-        }
     }
 }
 
-
-/// Let's have some fun! Using macro concatenation and Qt's metasystem to convert string
-/// representation of the enum value
-#define getEnumData(enumName, keyName, method) static_cast<enumName>( m_ ## enumName ## Enum. ## method ## ( keyName ));
-#define getEnumKey(enumName, keyName) getEnumData(enumName, keyName, keyToValue)
-#define getEnumValue(enumName) getEnumData(enumName, (m_ ## enumName), valueToKey)
-
-/// We need capitalized properties names for QMetaEnum
-inline QString capitalize(QString str)
-{
-    str = str.toLower();
-    str[0] = str[0].toUpper();
-    return str;
-}
-
-/// Since enums in C++ are extremly dumb and the language itself gives us no way to check
-/// their casting properly, we need this nail.
-#define validateEnum(enumName, value) m_ ## enumName ## Enum.valueToKey(value) != -1
-#define setEnumValue(enumName, value) if (validateEnum(enumName,value)) { m_ ## enumName ## = value; } \
-    else { qDebug() << "In " << __FILE__ << ":" << __LINE__ << " error: wrong enum, " << (int)value; }
 
 void JT_Archive::initMetaEnums()
 {
     QMetaObject metaObject = JT_Archive::staticMetaObject;
     const JT_Archive::m_ScopeEnum = metaObject.enumerator( metaObject.indexOfEnumerator( "Scope" ) );
-    const JT_Archive::m_SaveModeEnum = metaObject.enumerator( metaObject.indexOfEnumerator( "SaveMode" ) );
-    const JT_Archive::m_OTRModeEnum = metaObject.enumerator( metaObject.indexOfEnumerator( "OTRMode" ) );
-    const JT_Archive::m_ArchiveMethodEnum = metaObject.enumerator( metaObject.indexOfEnumerator( "ArchiveMethod" ) );
-    const JT_Archive::m_ArchivePriorityEnum = metaObject.enumerator( metaObject.indexOfEnumerator( "ArchivePriority" ) );
+    const JT_Archive::m_SaveModeEnum = metaObject.enumerator( metaObject.indexOfEnumerator( "Save" ) );
+    const JT_Archive::m_OTRModeEnum = metaObject.enumerator( metaObject.indexOfEnumerator( "Otr" ) );
+    const JT_Archive::m_ArchiveMethodEnum = metaObject.enumerator( metaObject.indexOfEnumerator( "Type" ) );
+    const JT_Archive::m_ArchivePriorityEnum = metaObject.enumerator( metaObject.indexOfEnumerator( "Use" ) );
 }
 
 void JT_Archive::setScope(JT_Archive::Scope sc)
@@ -127,7 +122,7 @@ Scope JT_Archive::scope()
 }
 QString JT_Archive::scope()
 {
-    return getEnumValue(Scope);
+    return getEnumValue(Scope, m_Scope);
 }
 
 void JT_Archive::setSaveMode(JT_Archive::Save sm)
@@ -147,7 +142,7 @@ JT_Archive::Save JT_Archive::saveMode()
 
 QString JT_Archive::saveMode()
 {
-    return getEnumValue(Save)
+    return getEnumValue(Save, m_Save)
 }
 
 void JT_Archive::setOTRMode(JT_Archive::Otr otrm)
@@ -167,7 +162,7 @@ JT_Archive::Otr JT_Archive::otrMode()
 
 QString JT_Archive::otrMode()
 {
-    return getEnumValue(Otr);
+    return getEnumValue(Otr, m_Otr);
 }
 
 void JT_Archive::setArchiveStorage(JT_Archive::Type am, JT_Archive::Use ap)
@@ -195,6 +190,6 @@ QString JT_Archive::archiveStorage(const QString &am)
 {
     JT_Archive::Type am_enum = getEnumKey(Type, am);
     JT_Archive::Use use_enum = archiveStorage(am_enum);
-    return getEnumValue(Use, use_enum);
+    return getEnumData(Use, use_enum);
 }
 
