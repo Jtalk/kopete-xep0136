@@ -39,6 +39,11 @@ using XMPP::Task;
 class JT_Archive : public Task
 {
     Q_OBJECT
+    Q_ENUMS( Scope )
+    Q_ENUMS( Save )
+    Q_ENUMS( Otr )
+    Q_ENUMS( Type )
+    Q_ENUMS( Use )
 public:
     static const QString NS; // urn:xmpp:archive
     static bool hasValidNS(QDomElement);
@@ -87,16 +92,24 @@ public:
     // I skip any enum validation, because if one wish to shoot his leg, no one
     // can ever stop him from doing so.
     void setScope(Scope sc = Stream);
+    void setScope(const QString &s);
     Scope scope();
+    QString scope();
 
     void setSaveMode(Save sm = Message);
+    void setSaveMode(const QString &s);
     Save saveMode();
+    QString saveMode();
 
     void setOTRMode(Otr otrm = Approve);
+    void setOTRMode(const QString &s);
     Otr otrMode();
+    QString otrMode();
 
     void setArchiveStorage(Type am, Use ap);
+    void setArchiveStorage(const QString& am, const QString& ap);
     Use archiveStorage(Type am);
+    QString archiveStorage(const QString& am);
 
 protected:
     /**
@@ -119,12 +132,17 @@ private:
     void initMetaEnums();
 
     Scope m_Scope;
+    static const QMetaEnum m_ScopeEnum;
 
     Save m_Save;
+    static const QMetaEnum m_SaveEnum;
 
     Otr m_Otr;
+    static const QMetaEnum m_OtrEnum;
 
     QMap<Type, Use> m_StorageSetting;
+    static const QMetaEnum m_TypeEnum;
+    static const QMetaEnum m_UseEnum;
 };
 
 #endif JT_ARCHIVE_H

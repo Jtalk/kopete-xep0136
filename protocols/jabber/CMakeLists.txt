@@ -115,6 +115,8 @@ set(kopete_jabber_PART_SRCS
    tasks/privacylistitem.cpp
    tasks/privacylist.cpp
    tasks/privacymanager.cpp
+   tasks/jt_archive.cpp
+   tasks/jt_archive/parser.cpp
    ${kopete_jabber_ui_SRCS} 
    jabberprotocol.cpp 
    jabberaccount.cpp 
