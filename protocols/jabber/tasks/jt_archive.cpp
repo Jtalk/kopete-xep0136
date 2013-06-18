@@ -63,14 +63,53 @@ QDomElement JT_Archive::uniformPrefsSetting()
 {
 }
 
+JT_Archive::AnswerHandler JT_Archive::chooseHandler(Preferences::QueryType type)
+{
+    using namespace JT_Archive::Preferences;
+    switch (type) {
+    case Set: return &handleSet;
+    case Get: return &handleGet;
+    case Result: return &handleResult;
+    case Error: return &handleError;
+    case Acknowledgement: return &nothing;
+    case NO_ARCHIVE: break;
+    }
+}
+
+#define DOM_FOREACH(var, domElement) for(QDomNode var = domElement.firstChild(); !var.isNull(); var = var.nextSibling())
+
+void JT_Archive::handleSet(const QDomElement &wholeElement, const QDomElement &noIq, const QString &sessionID)
+{
+    // Server pushes us the new preferences, let's save them!
+    DOM_FOREACH(node, noIq) {
+        QDomElement elem = node.toElement();
+        if (elem.isNull()) {
+            continue;
+        }
+
+        writePref(elem);
+    }
+}
+
+void JT_Archive::handleGet(const QDomElement &wholeElement, const QDomElement &noIq, const QString &sessionID)
+{
+    qDebug() << "That's weird. Server is not supposed to send GET IQs, received stanza is " << wholeElement.text() << endl;
+}
+
+void JT_Archive::handleResult(const QDomElement &wholeElement, const QDomElement &noIq, const QString &sessionID)
+{
+    // Server just sent us something we requested
+
+}
+
+void JT_Archive::handleError(const QDomElement &wholeElement, const QDomElement &noIq, const QString &sessionID)
+{
+}
+
 bool JT_Archive::parsePerfs(const QDomElement &e)
 {
     for(QDomNode n = e.firstChild(); !n.isNull(); n = n.nextSibling()) {
         QDomElement current = n.toElement();
-
-        if(current.isNull()) {
-            continue;
-        }
 
         if(current.tagName() == name) {
             if(found)
@@ -81,3 +120,48 @@ bool JT_Archive::parsePerfs(const QDomElement &e)
 }
 
 
+QString JT_Archive::Preferences::toString(JT_Archive::Preferences::Scope sc)
+{
+#error NOIMPLEMENT
+}
+
+QString JT_Archive::Preferences::toString(JT_Archive::Preferences::Save save)
+{
+#error NOIMPLEMENT
+}
+
+
+bool isIq(const QDomElement &e)
+{
+    return e.tagName() == "iq";
+}
+
+/**
+ * Converting text from XML to enumerations.
+ */
+JT_Archive::Preferences::QueryType queryType(const QDomElement &e)
+{
+    using namespace JT_Archive::Preferences;
+    // TODO: Fix this ugly mess somehow
+    if (isIq(e)) {
+        if (e.childNodes().isEmpty() && e.attribute("type") == "result") {
+            return Acknowledgement;
+        } else if (e.attribute("type") == "get") {
+            return Get;
+        } else if (e.attribute("type") == "set") {
+            return Set;
+        } else if (e.attribute("type") == "result") {
+            return Result;
+        } else if (e.attribute("type") == "error") {
+            return Error;
+        }
+    }
+    return NO_ARCHIVE;
+}
+
+bool JT_Archive::take(const QDomElement &e)
+{
+    Preferences::QueryType iqType = queryType(e);
+    // TODO: If we should do something on acknowledgement package receiving?
+    return iqType == Preferences::Acknowledgement? true : this->*chooseHandler(iqType)(e, result, id);
+}
