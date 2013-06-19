@@ -25,6 +25,7 @@
 #include <QtCore/QMap>
 #include <QtCore/QString>
 #include <QtCore/QPair>
+#include <QtCore/QVariant>
 
 #include <QtCore/QMetaObject>
 #include <QtCore/QMetaEnum>
@@ -90,17 +91,27 @@ public:
             NO_ARCHIVE      // This stanza is not supposed to be handled by an archiving task
         };
 
-        static QString toString(Scope);
-        static QString toString(Save);
-        static QString toString(Otr);
-        static QString toString(Type);
-        static QString toString(Use);
+        bool writePref(const QDomElement&);
+        QString readPref(const QString &name);
+        QDomElement uniformDomElement(const QString &name);
 
-        static Scope toScope(const QString&);
-        static Save toSave(const QString&);
-        static Otr toOtr(const QString&);
-        static Type toType(const QString&);
-        static Use toUse(const QString&);
+    protected:
+        bool setPref(const QString& name, const QVariant& value);
+
+        bool writeAutoTag(const QDomElement&);
+        bool writeDefaultTag(const QDomElement&);
+        bool writeItemTag(const QDomElement&);
+        bool writeSessionTag(const QDomElement&);
+        bool writeMethodTag(const QDomElement&);
+
+    private:
+        bool m_auto_save; // <auto save='true|false'/>
+        Scope m_auto_scope; // <auto scope='global|stream'/>
+        Save m_default_save;
+        Otr m_default_otr;
+        uint m_default_expire;
+        QMap<Type,Use> m_method;
+        QMap<QString, QVariant> m_preferences;
     };
 
 
@@ -144,19 +155,7 @@ protected:
     void handleResult(const QDomElement&, const QDomElement&, const QString&);
     void handleError(const QDomElement&, const QDomElement&, const QString&);
 private:
-    /**
-     * \brief initMetaEnums extracts enumerations information from the Qt meta system.
-     * This will initialize static QMetaEnum members for further use.
-     */
-    void initMetaEnums();
-
-    Scope m_Scope;
-
-    Save m_Save;
-
-    Otr m_Otr;
-
-    QMap<Type, Use> m_StorageSetting;
+    Preferences *m_preferences;
 };
 
 #endif JT_ARCHIVE_H

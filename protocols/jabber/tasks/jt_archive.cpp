@@ -72,21 +72,96 @@ JT_Archive::AnswerHandler JT_Archive::chooseHandler(Preferences::QueryType type)
     case Result: return &handleResult;
     case Error: return &handleError;
     case Acknowledgement: return &nothing;
-    case NO_ARCHIVE: break;
+    case NO_ARCHIVE: return &nothing;
     }
 }
+
+bool JT_Archive::Preferences::writeAutoTag(const QDomElement &elem)
+{
+    // <auto> Must be an empty tag and must contain 'save' attribute
+    // according to the current standard draft
+    if (elem.childNodes().isEmpty() && elem.attributes().contains("save")) {
+        m_auto_save = QVariant(elem.attribute("save")).toBool();
+
+        if (!elem.attribute("scope").isEmpty()) {
+            m_auto_scope = toScope(elem.attribute("scope"));
+        }
+        return true;
+    } else {
+        return false;
+    }
+}
+
+bool JT_Archive::Preferences::writeDefaultTag(const QDomElement &elem)
+{
+    // <default> Must be an empty tag and must contain 'save' and 'otr' attributes
+    // according to the current standard draft
+    if (elem.childNodes().isEmpty()
+            && elem.attributes().contains("save")
+            && elem.attributes().contains("otr")) {
+        m_default_save = toSave(elem.attribute("save"));
+        m_default_otr = toOtr(elem.attribute("otr"));
+
+        if (elem.attributes().contains("expire")) {
+            m_default_expire = QVariant(elem.attribute("scope")).toUInt();
+        }
+        return true;
+    } else {
+        return false;
+    }
+}
+
+bool JT_Archive::Preferences::writeItemTag(const QDomElement &)
+{
+#error NOIMPLEMENT
+}
+
+bool JT_Archive::Preferences::writeSessionTag(const QDomElement &)
+{
+#error NOIMPLEMENT
+}
+
+bool JT_Archive::Preferences::writeMethodTag(const QDomElement &elem)
+{
+    if (elem.childNodes().isEmpty()
+            && elem.attributes().contains("type")
+            && elem.attributes().contains("use")) {
+        QString type = elem.attribute("type");
+        QString use = elem.attribute("use");
+        m_method.insert(toType(type), toUse(use));
+    } else {
+        return false;
+    }
+}
+
+bool JT_Archive::Preferences::writePref(const QDomElement &elem)
+{
+    QString tagName = elem.tagName();
+    if (tagName == "auto") {
+        return writeAutoTag(elem);
+    } else if (tagName == "default") {
+        return writeDefaultTag(elem);
+    } else if (tagName == "item") {
+        return writeItemTag(elem);
+    } else if (tagName == "session") {
+        return writeSessionTag(elem);
+    } else if (tagName == "method") {
+        return writeMethodTag(elem);
+    } else {
+        // Unknown tag?
+        qDebug() << "Unknown tag: " << elem.text() << endl;
+        return false;
+    }
+}
+
 
 #define DOM_FOREACH(var, domElement) for(QDomNode var = domElement.firstChild(); !var.isNull(); var = var.nextSibling())
 
 void JT_Archive::handleSet(const QDomElement &wholeElement, const QDomElement &noIq, const QString &sessionID)
 {
-    // Server pushes us the new preferences, let's save them!
+    // Server pushes us new preferences, let's save them!
     DOM_FOREACH(node, noIq) {
         QDomElement elem = node.toElement();
-        if (elem.isNull()) {
-            continue;
-        }
-
         writePref(elem);
     }
 }
@@ -118,18 +193,6 @@ bool JT_Archive::parsePerfs(const QDomElement &e)
         }
     }
 }
-
-
-QString JT_Archive::Preferences::toString(JT_Archive::Preferences::Scope sc)
-{
-#error NOIMPLEMENT
-}
-
-QString JT_Archive::Preferences::toString(JT_Archive::Preferences::Save save)
-{
-#error NOIMPLEMENT
-}
-
 
 bool isIq(const QDomElement &e)
 {
