@@ -91,6 +91,7 @@ public:
             NO_ARCHIVE      // This stanza is not supposed to be handled by an archiving task
         };
 
+        bool writePrefs(const QDomElement&);
         bool writePref(const QDomElement&);
         QString readPref(const QString &name);
         QDomElement uniformDomElement(const QString &name);
@@ -150,10 +151,10 @@ protected:
     typedef void (JT_Archive::*AnswerHandler)(const QDomElement&, const QDomElement&, const QString&);
     AnswerHandler chooseHandler(Preferences::QueryType type);
 
-    void handleSet(const QDomElement&, const QDomElement&, const QString&);
-    void handleGet(const QDomElement&, const QDomElement&, const QString&);
-    void handleResult(const QDomElement&, const QDomElement&, const QString&);
-    void handleError(const QDomElement&, const QDomElement&, const QString&);
+    bool handleSet(const QDomElement&, const QDomElement&, const QString&);
+    bool handleGet(const QDomElement&, const QDomElement&, const QString&);
+    bool handleResult(const QDomElement&, const QDomElement&, const QString&);
+    bool handleError(const QDomElement&, const QDomElement&, const QString&);
 private:
     Preferences *m_preferences;
 };

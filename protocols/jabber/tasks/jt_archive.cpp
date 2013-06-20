@@ -134,6 +134,17 @@ bool JT_Archive::Preferences::writeMethodTag(const QDomElement &elem)
     }
 }
 
+#define DOM_FOREACH(var, domElement) for(QDomNode var = domElement.firstChild(); !var.isNull(); var = var.nextSibling())
+
+bool JT_Archive::Preferences::writePrefs(const QDomElement &tags)
+{
+    bool isSuccessful = true;
+    DOM_FOREACH(tag, tags) {
+        isSuccessful = isSuccessful && writePref(tag.toElement());
+    }
+    return isSuccessful;
+}
+
 bool JT_Archive::Preferences::writePref(const QDomElement &elem)
 {
     QString tagName = elem.tagName();
@@ -154,30 +165,47 @@ bool JT_Archive::Preferences::writePref(const QDomElement &elem)
     }
 }
 
-
-#define DOM_FOREACH(var, domElement) for(QDomNode var = domElement.firstChild(); !var.isNull(); var = var.nextSibling())
-
-void JT_Archive::handleSet(const QDomElement &wholeElement, const QDomElement &noIq, const QString &sessionID)
+bool isPref(const QDomElement &elem)
 {
-    // Server pushes us new preferences, let's save them!
-    DOM_FOREACH(node, noIq) {
-        QDomElement elem = node.toElement();
-        writePref(elem);
-    }
+    return elem.tagName() == "pref";
 }
 
-void JT_Archive::handleGet(const QDomElement &wholeElement, const QDomElement &noIq, const QString &sessionID)
+bool JT_Archive::handleSet(const QDomElement &wholeElement, const QDomElement &noIq, const QString &sessionID)
+{
+    // Server pushes us new preferences, let's save them!
+    // Server must send us 'set' requests only for new settings
+    // pushing, so, if there's no <pref> tag inside <iq>, the
+    // stanza is incorrect and should not be further processed.
+    if (isPref(noIq)) {
+        return m_preferences->writePrefs(noIq);
+    } else {
+        return false;
+    }
+
+}
+
+bool JT_Archive::handleGet(const QDomElement &wholeElement, const QDomElement &noIq, const QString &sessionID)
 {
     qDebug() << "That's weird. Server is not supposed to send GET IQs, received stanza is " << wholeElement.text() << endl;
 }
 
-void JT_Archive::handleResult(const QDomElement &wholeElement, const QDomElement &noIq, const QString &sessionID)
+bool isList(const QDomElement &elem)
 {
-    // Server just sent us something we requested
-
+    return elem.tagName() == "list";
 }
 
-void JT_Archive::handleError(const QDomElement &wholeElement, const QDomElement &noIq, const QString &sessionID)
+bool JT_Archive::handleResult(const QDomElement &wholeElement, const QDomElement &noIq, const QString &sessionID)
+{
+    if (isPref(noIq)) {
+        return m_preferences->writePrefs(noIq);
+    } else if (isList(noIq)) {
+        emit collectionListReceived(noIq);
+    } else if (isChat(noIq)) {
+        emit collectionItemReceived(noIq);
+    }
+}
+
+bool JT_Archive::handleError(const QDomElement &wholeElement, const QDomElement &noIq, const QString &sessionID)
 {
 }
 
