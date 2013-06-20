@@ -71,7 +71,7 @@ public:
         };
 
         /// Where and how hard does user prefer to store archive?
-        enum Type {
+        enum Method {
             Auto,   // Server-side automatic archiving
             Local,  // Archiving to the local file/database
             Manual  // Manual server-side archiving
@@ -99,20 +99,18 @@ public:
     protected:
         bool setPref(const QString& name, const QVariant& value);
 
-        bool writeAutoTag(const QDomElement&);
-        bool writeDefaultTag(const QDomElement&);
-        bool writeItemTag(const QDomElement&);
-        bool writeSessionTag(const QDomElement&);
-        bool writeMethodTag(const QDomElement&);
+        bool handleAutoTag(const QDomElement&);
+        bool handleDefaultTag(const QDomElement&);
+        bool handleItemTag(const QDomElement&);
+        bool handleSessionTag(const QDomElement&);
+        bool handleMethodTag(const QDomElement&);
+
+    signals:
+        void automaticArchivingEnable(bool,Scope); // <auto save='true|false' scope='global|stream'/>
+        void defaultPreferenceChanged(Save,Otr,uint);
+        void archivingMethodChanged(Method,Use);
 
     private:
-        bool m_auto_save; // <auto save='true|false'/>
-        Scope m_auto_scope; // <auto scope='global|stream'/>
-        Save m_default_save;
-        Otr m_default_otr;
-        uint m_default_expire;
-        QMap<Type,Use> m_method;
-        QMap<QString, QVariant> m_preferences;
     };
 
 

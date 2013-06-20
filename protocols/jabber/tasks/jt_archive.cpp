@@ -76,7 +76,7 @@ JT_Archive::AnswerHandler JT_Archive::chooseHandler(Preferences::QueryType type)
     }
 }
 
-bool JT_Archive::Preferences::writeAutoTag(const QDomElement &elem)
+bool JT_Archive::Preferences::handleAutoTag(const QDomElement &elem)
 {
     // <auto> Must be an empty tag and must contain 'save' attribute
     // according to the current standard draft
@@ -92,7 +92,7 @@ bool JT_Archive::Preferences::writeAutoTag(const QDomElement &elem)
     }
 }
 
-bool JT_Archive::Preferences::writeDefaultTag(const QDomElement &elem)
+bool JT_Archive::Preferences::handleDefaultTag(const QDomElement &elem)
 {
     // <default> Must be an empty tag and must contain 'save' and 'otr' attributes
     // according to the current standard draft
@@ -111,17 +111,17 @@ bool JT_Archive::Preferences::writeDefaultTag(const QDomElement &elem)
     }
 }
 
-bool JT_Archive::Preferences::writeItemTag(const QDomElement &)
+bool JT_Archive::Preferences::handleItemTag(const QDomElement &)
 {
 #error NOIMPLEMENT
 }
 
-bool JT_Archive::Preferences::writeSessionTag(const QDomElement &)
+bool JT_Archive::Preferences::handleSessionTag(const QDomElement &)
 {
 #error NOIMPLEMENT
 }
 
-bool JT_Archive::Preferences::writeMethodTag(const QDomElement &elem)
+bool JT_Archive::Preferences::handleMethodTag(const QDomElement &elem)
 {
     if (elem.childNodes().isEmpty()
             && elem.attributes().contains("type")
@@ -149,15 +149,15 @@ bool JT_Archive::Preferences::writePref(const QDomElement &elem)
 {
     QString tagName = elem.tagName();
     if (tagName == "auto") {
-        return writeAutoTag(elem);
+        return handleAutoTag(elem);
     } else if (tagName == "default") {
-        return writeDefaultTag(elem);
+        return handleDefaultTag(elem);
     } else if (tagName == "item") {
-        return writeItemTag(elem);
+        return handleItemTag(elem);
     } else if (tagName == "session") {
-        return writeSessionTag(elem);
+        return handleSessionTag(elem);
     } else if (tagName == "method") {
-        return writeMethodTag(elem);
+        return handleMethodTag(elem);
     } else {
         // Unknown tag?
         qDebug() << "Unknown tag: " << elem.text() << endl;
