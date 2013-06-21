@@ -44,9 +44,16 @@ JT_Archive::JT_Archive(const Task *parent)
 
 }
 
-QDomElement JT_Archive::uniformArchivingNS()
+void JT_Archive::onGo()
 {
-    QDomElement archiveNamespace = doc()->createElement("pref");
+    // We must request our stored settings
+    QDomElement request = uniformPrefsRequest();
+    send(request);
+}
+
+QDomElement JT_Archive::uniformArchivingNS(const QString &tagName)
+{
+    QDomElement archiveNamespace = doc()->createElement(tagName);
     perfsRequestBody.setAttribute("xmlns", NS);
     return archiveNamespace;
 }
@@ -55,12 +62,8 @@ QDomElement JT_Archive::uniformPrefsRequest()
 {
     // TODO: take care of the proper ID.
     QDomElement prefsRequest = createIQ(doc(), "get", "", "msgarch1");
-    prefsRequest.appendChild( uniformArchivingNS() );
+    prefsRequest.appendChild( uniformArchivingNS("pref") );
     return perfsRequest;
-}
-
-QDomElement JT_Archive::uniformPrefsSetting()
-{
 }
 
 JT_Archive::AnswerHandler JT_Archive::chooseHandler(Preferences::QueryType type)
@@ -76,94 +79,7 @@ JT_Archive::AnswerHandler JT_Archive::chooseHandler(Preferences::QueryType type)
     }
 }
 
-bool JT_Archive::Preferences::handleAutoTag(const QDomElement &elem)
-{
-    // <auto> Must be an empty tag and must contain 'save' attribute
-    // according to the current standard draft
-    if (elem.childNodes().isEmpty() && elem.attributes().contains("save")) {
-        m_auto_save = QVariant(elem.attribute("save")).toBool();
 
-        if (!elem.attribute("scope").isEmpty()) {
-            m_auto_scope = toScope(elem.attribute("scope"));
-        }
-        return true;
-    } else {
-        return false;
-    }
-}
-
-bool JT_Archive::Preferences::handleDefaultTag(const QDomElement &elem)
-{
-    // <default> Must be an empty tag and must contain 'save' and 'otr' attributes
-    // according to the current standard draft
-    if (elem.childNodes().isEmpty()
-            && elem.attributes().contains("save")
-            && elem.attributes().contains("otr")) {
-        m_default_save = toSave(elem.attribute("save"));
-        m_default_otr = toOtr(elem.attribute("otr"));
-
-        if (elem.attributes().contains("expire")) {
-            m_default_expire = QVariant(elem.attribute("scope")).toUInt();
-        }
-        return true;
-    } else {
-        return false;
-    }
-}
-
-bool JT_Archive::Preferences::handleItemTag(const QDomElement &)
-{
-#error NOIMPLEMENT
-}
-
-bool JT_Archive::Preferences::handleSessionTag(const QDomElement &)
-{
-#error NOIMPLEMENT
-}
-
-bool JT_Archive::Preferences::handleMethodTag(const QDomElement &elem)
-{
-    if (elem.childNodes().isEmpty()
-            && elem.attributes().contains("type")
-            && elem.attributes().contains("use")) {
-        QString type = elem.attribute("type");
-        QString use = elem.attribute("use");
-        m_method.insert(toType(type), toUse(use));
-    } else {
-        return false;
-    }
-}
-
-#define DOM_FOREACH(var, domElement) for(QDomNode var = domElement.firstChild(); !var.isNull(); var = var.nextSibling())
-
-bool JT_Archive::Preferences::writePrefs(const QDomElement &tags)
-{
-    bool isSuccessful = true;
-    DOM_FOREACH(tag, tags) {
-        isSuccessful = isSuccessful && writePref(tag.toElement());
-    }
-    return isSuccessful;
-}
-
-bool JT_Archive::Preferences::writePref(const QDomElement &elem)
-{
-    QString tagName = elem.tagName();
-    if (tagName == "auto") {
-        return handleAutoTag(elem);
-    } else if (tagName == "default") {
-        return handleDefaultTag(elem);
-    } else if (tagName == "item") {
-        return handleItemTag(elem);
-    } else if (tagName == "session") {
-        return handleSessionTag(elem);
-    } else if (tagName == "method") {
-        return handleMethodTag(elem);
-    } else {
-        // Unknown tag?
-        qDebug() << "Unknown tag: " << elem.text() << endl;
-        return false;
-    }
-}
 
 bool isPref(const QDomElement &elem)
 {
@@ -230,9 +146,9 @@ bool isIq(const QDomElement &e)
 /**
  * Converting text from XML to enumerations.
  */
-JT_Archive::Preferences::QueryType queryType(const QDomElement &e)
+JT_Archive::QueryType queryType(const QDomElement &e)
 {
-    using namespace JT_Archive::Preferences;
+    using namespace JT_Archive;
     // TODO: Fix this ugly mess somehow
     if (isIq(e)) {
         if (e.childNodes().isEmpty() && e.attribute("type") == "result") {
@@ -254,5 +170,8 @@ bool JT_Archive::take(const QDomElement &e)
 {
     Preferences::QueryType iqType = queryType(e);
     // TODO: If we should do something on acknowledgement package receiving?
+    qDebug() << e.text();
     return iqType == Preferences::Acknowledgement? true : this->*chooseHandler(iqType)(e, result, id);
 }
+
+

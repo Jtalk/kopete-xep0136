@@ -112,6 +112,7 @@ set(kopete_jabber_PART_SRCS
    tasks/jt_xregister.cpp
    tasks/jt_pubsub.cpp
    tasks/jt_archive.cpp
+   tasks/jt_archive/preferences.cpp
    tasks/mood.cpp
    tasks/privacylistitem.cpp
    tasks/privacylist.cpp
