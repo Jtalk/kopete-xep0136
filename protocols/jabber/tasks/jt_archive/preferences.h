@@ -2,6 +2,7 @@
 #define JT_ARCHIVE_PREFERENCES_H
 
 #include <QtCore/QString>
+#include <QtCore/QSet>
 #include <QtXml/QDomElement>
 
 
@@ -12,39 +13,21 @@ namespace JT_Archive_Helper {
  */
 struct Preferences {
     /// Scope of archiving setting: forever or for the current stream only
-    enum Scope { Global, Stream };
-    static const Scope defaultScope = Global;
+    QSet<QString> legalScopes;
+    static const QString defaultScope;
 
     /// Which part of the messaging stream should we store?
-    enum Save {
-        Body,       // Only <body> text
-        False,      // Nothing
-        Message,    // The whole <message> XML
-        Stream      // The whole stream, byte-to-byte
-    };
+    static const QSet<QString> legalSaveModes;
 
     /// How do we proceed Off-the-Record?
-    enum Otr {
-        Approve,    // the user MUST explicitly approve off-the-record communication.
-        Concede,    // communications MAY be off the record if requested by another user.
-        Forbid,     // communications MUST NOT be off the record.
-        Oppose,     // communications SHOULD NOT be off the record even if requested.
-        Prefer,     // communications SHOULD be off the record if possible.
-        Require    // communications MUST be off the record.
-    };
+    QSet<QString> legalOtrModes;
 
     /// Where and how hard does user prefer to store archive?
-    enum Method {
-        Auto,   // Server-side automatic archiving
-        Local,  // Archiving to the local file/database
-        Manual  // Manual server-side archiving
-    };
-    enum Use {
-        Concede,    // Use if no other methods are available
-        Forbid,     // Never use this method
-        Prefer     // Use if available
-    };
+    QSet<QString> legalStorages;
+    QSet<QString> legalStoragePriorities;
     static const uint defaultExpiration = (uint)-1;
+
+    Preferences();
 
     bool writePrefs(const QDomElement&);
     bool writePref(const QDomElement&);
@@ -61,16 +44,16 @@ protected:
     bool handleMethodTag(const QDomElement&);
 
 signals:
-    void automaticArchivingEnable(bool,Preferences::Scope); // <auto save='true|false' scope='global|stream'/>
-    void defaultPreferenceChanged(Preferences::Save,Preferences::Otr,uint); // <default save='#Save' otr='#Otr' expire='12345'/>
-    void archivingMethodChanged(Preferences::Method,Preferences::Use); // <method type='auto|manual|local' use='concede|prefer|forbid'/>
+    void automaticArchivingEnable(bool,QString scope); // <auto save='true|false' scope='global|stream'/>
+    void defaultPreferenceChanged(QString saveMode,QString otr,uint expire); // <default save='#Save' otr='#Otr' expire='12345'/>
+    void archivingMethodChanged(QString method,QString use); // <method type='auto|manual|local' use='concede|prefer|forbid'/>
 
 private:
-    static Scope toScope(const QString&);
-    static Save toSave(const QString&);
-    static Otr toOtr(const QString&);
-    static Method toMethod(const QString&);
-    static Use toUse(const QString&);
+    static bool verifyScope(const QString&);
+    static bool verifySaveMode(const QString&);
+    static bool verifyOtr(const QString&);
+    static bool verifyStorageMethod(const QString&);
+    static bool verifyStoragePriority(const QString&);
 };
 }
 #endif

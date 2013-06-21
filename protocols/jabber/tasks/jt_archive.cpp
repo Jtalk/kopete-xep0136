@@ -18,6 +18,11 @@
 #include "xmpp_xmlcommon.h"
 #include "xmpp_client.h"
 
+#include <QtCore/QDebug>
+
+// Static member initialization, XMPP NS field for archiving stanzas
+const QString JT_Archive::NS = "urn:xmpp:archive";
+
 bool JT_Archive::hasValidNS(QDomElement e)
 {
     bool found = false;
@@ -25,23 +30,9 @@ bool JT_Archive::hasValidNS(QDomElement e)
     return found && perf.attribute("xmlns") == NS;
 }
 
-JT_Archive::JT_Archive(const Task *parent)
+JT_Archive::JT_Archive(Task *const parent)
     : Task(parent)
 {
-    // Static member initialization, XMPP NS field for archiving stanzas
-    const QString JT_Archive::NS = "urn:xmpp:archive";
-
-    setScope();
-    setSaveMode();
-    setOTRMode();
-
-    // We are setting auto-archiving as forbidden by default because server-side
-    // storing is a security breakdown if server location is not protected against
-    // unauthorized access. User must explicitly allow server-side archiving.
-    setArchiveStorage(Auto, Forbid);
-    setArchiveStorage(Local, Prefer);
-    setArchiveStorage(Manual, Concede);
-
 }
 
 void JT_Archive::onGo()
@@ -54,7 +45,7 @@ void JT_Archive::onGo()
 QDomElement JT_Archive::uniformArchivingNS(const QString &tagName)
 {
     QDomElement archiveNamespace = doc()->createElement(tagName);
-    perfsRequestBody.setAttribute("xmlns", NS);
+    archiveNamespace.setAttribute("xmlns", NS);
     return archiveNamespace;
 }
 
@@ -63,23 +54,8 @@ QDomElement JT_Archive::uniformPrefsRequest()
     // TODO: take care of the proper ID.
     QDomElement prefsRequest = createIQ(doc(), "get", "", "msgarch1");
     prefsRequest.appendChild( uniformArchivingNS("pref") );
-    return perfsRequest;
+    return prefsRequest;
 }
-
-JT_Archive::AnswerHandler JT_Archive::chooseHandler(Preferences::QueryType type)
-{
-    using namespace JT_Archive::Preferences;
-    switch (type) {
-    case Set: return &handleSet;
-    case Get: return &handleGet;
-    case Result: return &handleResult;
-    case Error: return &handleError;
-    case Acknowledgement: return &nothing;
-    case NO_ARCHIVE: return &nothing;
-    }
-}
-
-
 
 bool isPref(const QDomElement &elem)
 {
@@ -103,6 +79,7 @@ bool JT_Archive::handleSet(const QDomElement &wholeElement, const QDomElement &n
 bool JT_Archive::handleGet(const QDomElement &wholeElement, const QDomElement &noIq, const QString &sessionID)
 {
     qDebug() << "That's weird. Server is not supposed to send GET IQs, received stanza is " << wholeElement.text() << endl;
+    return false;
 }
 
 bool isList(const QDomElement &elem)
@@ -110,32 +87,27 @@ bool isList(const QDomElement &elem)
     return elem.tagName() == "list";
 }
 
+bool isChat(const QDomElement &elem)
+{
+    return elem.tagName() == "chat";
+}
+
 bool JT_Archive::handleResult(const QDomElement &wholeElement, const QDomElement &noIq, const QString &sessionID)
 {
     if (isPref(noIq)) {
         return m_preferences->writePrefs(noIq);
     } else if (isList(noIq)) {
-        emit collectionListReceived(noIq);
+#warning Collection manager is needed there
+        //emit collectionListReceived(noIq);
     } else if (isChat(noIq)) {
-        emit collectionItemReceived(noIq);
-    }
+#warning And there
+        //emit collectionItemReceived(noIq);
+    } else return false;
 }
 
 bool JT_Archive::handleError(const QDomElement &wholeElement, const QDomElement &noIq, const QString &sessionID)
 {
-}
-
-bool JT_Archive::parsePerfs(const QDomElement &e)
-{
-    for(QDomNode n = e.firstChild(); !n.isNull(); n = n.nextSibling()) {
-        QDomElement current = n.toElement();
-
-        if(current.tagName() == name) {
-            if(found)
-                *found = true;
-            return i;
-        }
-    }
+    return true;
 }
 
 bool isIq(const QDomElement &e)
@@ -146,13 +118,25 @@ bool isIq(const QDomElement &e)
 /**
  * Converting text from XML to enumerations.
  */
+JT_Archive::AnswerHandler JT_Archive::chooseHandler(QueryType type)
+{
+    switch (type) {
+    case Set: return &JT_Archive::handleSet;
+    case Get: return &JT_Archive::handleGet;
+    case Result: return &JT_Archive::handleResult;
+    case Error: return &JT_Archive::handleError;
+    case Acknowledgement: return &JT_Archive::nothing;
+    case NO_ARCHIVE: return &JT_Archive::nothing;
+    }
+    return &JT_Archive::nothing;
+}
 JT_Archive::QueryType queryType(const QDomElement &e)
 {
     using namespace JT_Archive;
     // TODO: Fix this ugly mess somehow
     if (isIq(e)) {
         if (e.childNodes().isEmpty() && e.attribute("type") == "result") {
-            return Acknowledgement;
+            return
         } else if (e.attribute("type") == "get") {
             return Get;
         } else if (e.attribute("type") == "set") {
@@ -168,10 +152,10 @@ JT_Archive::QueryType queryType(const QDomElement &e)
 
 bool JT_Archive::take(const QDomElement &e)
 {
-    Preferences::QueryType iqType = queryType(e);
+    QueryType iqType = queryType(e);
     // TODO: If we should do something on acknowledgement package receiving?
     qDebug() << e.text();
-    return iqType == Preferences::Acknowledgement? true : this->*chooseHandler(iqType)(e, result, id);
+    return iqType == Acknowledgement? true : this->*chooseHandler(iqType)(e, result, id);
 }
 
 

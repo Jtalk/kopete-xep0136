@@ -52,7 +52,7 @@ public:
         NO_ARCHIVE      // This stanza is not supposed to be handled by an archiving task
     };
 
-    JT_Archive(const Task *parent);
+    JT_Archive(Task *const parent);
 
     virtual void onGo();
     virtual bool take(const QDomElement &);
@@ -73,15 +73,16 @@ protected:
     QDomElement uniformArchivingNS(const QString &tagName);
     QDomElement uniformPrefsRequest();
 
-    typedef void (JT_Archive::*AnswerHandler)(const QDomElement&, const QDomElement&, const QString&);
+    typedef bool (JT_Archive::*AnswerHandler)(const QDomElement&, const QDomElement&, const QString&);
     AnswerHandler chooseHandler(QueryType type);
 
     bool handleSet(const QDomElement&, const QDomElement&, const QString&);
     bool handleGet(const QDomElement&, const QDomElement&, const QString&);
     bool handleResult(const QDomElement&, const QDomElement&, const QString&);
     bool handleError(const QDomElement&, const QDomElement&, const QString&);
+    bool nothing(const QDomElement&, const QDomElement&, const QString&) { return false; }
 private:
     JT_Archive_Helper::Preferences *m_preferences;
 };
 
-#endif JT_ARCHIVE_H
+#endif
