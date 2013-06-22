@@ -1,4 +1,30 @@
 #include "preferences.h"
+#include <QtCore/QVariant>
+#include <QtCore/QDebug>
+
+
+const QSet<QString> JT_Archive_Helper::Preferences::legalScopes = QSet<QString>() << "global" << "stream";
+const QString  JT_Archive_Helper::Preferences::defaultScope = "global";
+const QSet<QString>  JT_Archive_Helper::Preferences::legalSaveModes = QSet<QString>()
+        << "body"
+        << "false"
+        << "message"
+        << "stream";
+const QSet<QString>  JT_Archive_Helper::Preferences::legalOtrModes = QSet<QString>()
+        << "concede"
+        << "prefer"
+        << "forbid"
+        << "approve"
+        << "oppose"
+        << "require";
+const QSet<QString>  JT_Archive_Helper::Preferences::legalStorages = QSet<QString>()
+        << "auto"
+        << "local"
+        << "manual";
+const QSet<QString>  JT_Archive_Helper::Preferences::legalStoragePriorities = QSet<QString>()
+        << "forbid"
+        << "concede"
+        << "prefer";
 
 bool verifyAutoTag(const QDomElement &autoTag)
 {
@@ -57,18 +83,20 @@ bool JT_Archive_Helper::Preferences::handleDefaultTag(const QDomElement &default
 
 bool JT_Archive_Helper::Preferences::handleItemTag(const QDomElement &)
 {
-#error NOIMPLEMENT
+    // TODO: Implement per-user storing settings
+    return true;
 }
 
 bool JT_Archive_Helper::Preferences::handleSessionTag(const QDomElement &)
 {
-#error NOIMPLEMENT
+    // TODO: Implement per-session storing settings
+    return true;
 }
 
 bool verifyMethodTag(const QDomElement &tag) {
-    return elem.childNodes().isEmpty()
-            && elem.attributes().contains("type")
-            && elem.attributes().contains("use");
+    return tag.childNodes().isEmpty()
+            && tag.attributes().contains("type")
+            && tag.attributes().contains("use");
 }
 
 bool JT_Archive_Helper::Preferences::handleMethodTag(const QDomElement &methodTag)
@@ -83,28 +111,6 @@ bool JT_Archive_Helper::Preferences::handleMethodTag(const QDomElement &methodTa
 
 JT_Archive_Helper::Preferences::Preferences()
 {
-    static const Preferences::legalScopes = QSet<QString>() << "global" << "stream";
-    static const Preferences::defaultScope = "global";
-    static const Preferences::legalSaveModes = QSet<QString>()
-            << "body"
-            << "false"
-            << "message"
-            << "stream";
-    static const Preferences::legalOtrModes = QSet<QString>()
-            << "concede"
-            << "prefer"
-            << "forbid"
-            << "approve"
-            << "oppose"
-            << "require";
-    static const Preferences::legalStorages = QSet<QString>()
-            << "auto"
-            << "local"
-            << "manual";
-    static const Preferences::legalStoragePriorities = QSet<QString>()
-            << "forbid"
-            << "concede"
-            << "prefer";
 }
 
 #define DOM_FOREACH(var, domElement) for(QDomNode var = domElement.firstChild(); !var.isNull(); var = var.nextSibling())
@@ -133,7 +139,7 @@ bool JT_Archive_Helper::Preferences::writePref(const QDomElement &elem)
         return handleMethodTag(elem);
     } else {
         // Unknown tag?
-        qDebug() << "Unknown tag: " << elem.text() << endl;
+        qDebug() << "Unknown tag: " << elem.text();
         return false;
     }
 }

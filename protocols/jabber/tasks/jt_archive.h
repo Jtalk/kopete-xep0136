@@ -28,7 +28,6 @@
 #include <QtCore/QVariant>
 
 #include "xmpp_task.h"
-#include "xmpp_jid.h"
 #include "xmpp_xdata.h"
 
 #include "jt_archive/preferences.h"
@@ -74,13 +73,14 @@ protected:
     QDomElement uniformPrefsRequest();
 
     typedef bool (JT_Archive::*AnswerHandler)(const QDomElement&, const QDomElement&, const QString&);
-    AnswerHandler chooseHandler(QueryType type);
+    AnswerHandler chooseHandler(const QDomElement&);
 
     bool handleSet(const QDomElement&, const QDomElement&, const QString&);
     bool handleGet(const QDomElement&, const QDomElement&, const QString&);
     bool handleResult(const QDomElement&, const QDomElement&, const QString&);
     bool handleError(const QDomElement&, const QDomElement&, const QString&);
-    bool nothing(const QDomElement&, const QDomElement&, const QString&) { return false; }
+    bool skip(const QDomElement&, const QDomElement&, const QString&) { return false; }
+    bool acknowledge(const QDomElement&, const QDomElement&, const QString&) { return true; }
 private:
     JT_Archive_Helper::Preferences *m_preferences;
 };

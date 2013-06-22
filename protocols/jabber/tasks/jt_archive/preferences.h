@@ -11,20 +11,23 @@ namespace JT_Archive_Helper {
  * \brief The Preferences struct contains XEP-0136 preferences representation,
  * as well as string-to-enum and vice versa conversion routines.
  */
-struct Preferences {
+struct Preferences : public QObject{
+    Q_OBJECT
+
+public:
     /// Scope of archiving setting: forever or for the current stream only
-    QSet<QString> legalScopes;
+    static const QSet<QString> legalScopes;
     static const QString defaultScope;
 
     /// Which part of the messaging stream should we store?
     static const QSet<QString> legalSaveModes;
 
     /// How do we proceed Off-the-Record?
-    QSet<QString> legalOtrModes;
+    static const QSet<QString> legalOtrModes;
 
     /// Where and how hard does user prefer to store archive?
-    QSet<QString> legalStorages;
-    QSet<QString> legalStoragePriorities;
+    static const QSet<QString> legalStorages;
+    static const QSet<QString> legalStoragePriorities;
     static const uint defaultExpiration = (uint)-1;
 
     Preferences();

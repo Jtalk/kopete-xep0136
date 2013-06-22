@@ -33,10 +33,13 @@ bool JT_Archive::hasValidNS(QDomElement e)
 JT_Archive::JT_Archive(Task *const parent)
     : Task(parent)
 {
+    qDebug() << "Archiving class is created";
+    m_preferences = new JT_Archive_Helper::Preferences();
 }
 
 void JT_Archive::onGo()
 {
+    qDebug() << "Archiving stanza sent";
     // We must request our stored settings
     QDomElement request = uniformPrefsRequest();
     send(request);
@@ -64,6 +67,8 @@ bool isPref(const QDomElement &elem)
 
 bool JT_Archive::handleSet(const QDomElement &wholeElement, const QDomElement &noIq, const QString &sessionID)
 {
+    Q_UNUSED(sessionID)
+    Q_UNUSED(wholeElement)
     // Server pushes us new preferences, let's save them!
     // Server must send us 'set' requests only for new settings
     // pushing, so, if there's no <pref> tag inside <iq>, the
@@ -78,6 +83,8 @@ bool JT_Archive::handleSet(const QDomElement &wholeElement, const QDomElement &n
 
 bool JT_Archive::handleGet(const QDomElement &wholeElement, const QDomElement &noIq, const QString &sessionID)
 {
+    Q_UNUSED(sessionID)
+    Q_UNUSED(noIq)
     qDebug() << "That's weird. Server is not supposed to send GET IQs, received stanza is " << wholeElement.text() << endl;
     return false;
 }
@@ -94,19 +101,26 @@ bool isChat(const QDomElement &elem)
 
 bool JT_Archive::handleResult(const QDomElement &wholeElement, const QDomElement &noIq, const QString &sessionID)
 {
+    Q_UNUSED(sessionID)
+    Q_UNUSED(wholeElement)
     if (isPref(noIq)) {
         return m_preferences->writePrefs(noIq);
     } else if (isList(noIq)) {
 #warning Collection manager is needed there
         //emit collectionListReceived(noIq);
+        return true;
     } else if (isChat(noIq)) {
 #warning And there
         //emit collectionItemReceived(noIq);
+        return true;
     } else return false;
 }
 
 bool JT_Archive::handleError(const QDomElement &wholeElement, const QDomElement &noIq, const QString &sessionID)
 {
+    Q_UNUSED(sessionID)
+    Q_UNUSED(wholeElement)
+    Q_UNUSED(noIq)
     return true;
 }
 
@@ -118,44 +132,33 @@ bool isIq(const QDomElement &e)
 /**
  * Converting text from XML to enumerations.
  */
-JT_Archive::AnswerHandler JT_Archive::chooseHandler(QueryType type)
+JT_Archive::AnswerHandler JT_Archive::chooseHandler(const QDomElement &e)
 {
-    switch (type) {
-    case Set: return &JT_Archive::handleSet;
-    case Get: return &JT_Archive::handleGet;
-    case Result: return &JT_Archive::handleResult;
-    case Error: return &JT_Archive::handleError;
-    case Acknowledgement: return &JT_Archive::nothing;
-    case NO_ARCHIVE: return &JT_Archive::nothing;
-    }
-    return &JT_Archive::nothing;
-}
-JT_Archive::QueryType queryType(const QDomElement &e)
-{
-    using namespace JT_Archive;
     // TODO: Fix this ugly mess somehow
     if (isIq(e)) {
         if (e.childNodes().isEmpty() && e.attribute("type") == "result") {
-            return
+            return &JT_Archive::acknowledge;
         } else if (e.attribute("type") == "get") {
-            return Get;
+            return &JT_Archive::handleGet;
         } else if (e.attribute("type") == "set") {
-            return Set;
+            return &JT_Archive::handleSet;
         } else if (e.attribute("type") == "result") {
-            return Result;
+            return &JT_Archive::handleResult;
         } else if (e.attribute("type") == "error") {
-            return Error;
+            return &JT_Archive::handleError;
         }
     }
-    return NO_ARCHIVE;
+    return &JT_Archive::skip;
 }
 
 bool JT_Archive::take(const QDomElement &e)
 {
-    QueryType iqType = queryType(e);
+    // TODO: Should we look through all tags instead?
+    QDomElement internalTag = e.firstChild().toElement();
+    QString id = e.attribute("id");
     // TODO: If we should do something on acknowledgement package receiving?
     qDebug() << e.text();
-    return iqType == Acknowledgement? true : this->*chooseHandler(iqType)(e, result, id);
+    return (this->*chooseHandler(e))(e, internalTag, id);
 }
 
 
