@@ -47,6 +47,7 @@
 #include "privacydlg.h"
 
 #include "xmpp.h"
+#include "tasks/jt_archive.h"
 
 #ifdef JINGLE_SUPPORT
 //FIXME:Should be replaced by Solid.
@@ -118,10 +119,20 @@ JabberEditAccountWidget::JabberEditAccountWidget (JabberProtocol * proto, Jabber
 		
 		privacyListsButton->setEnabled (false);
 	}
+
+    // Setup automatic archiving settings in accordance with server settings
+    if (account()->isConnected()) {
+        ArchivingPreferences->setEnabled(true);
+        initAutomaticArchiving();
+    } else {
+        // Hideout all the setting because automatic archiving is mainly a server-side thing
+        ArchivingPreferences->setEnabled(false);
+    }
 }
 
 JabberEditAccountWidget::~JabberEditAccountWidget ()
 {
+    delete m_archiveManager;
 }
 
 
@@ -450,7 +461,18 @@ void JabberEditAccountWidget::sslToggled (bool value)
 void JabberEditAccountWidget::slotPrivacyListsClicked()
 {
 	PrivacyDlg * dialog = new PrivacyDlg (account(), this);
-	dialog->show();
+    dialog->show();
+}
+
+void JabberEditAccountWidget::initAutomaticArchiving()
+{
+    // We hide those groups until preferences are delivered via signal-slot mechanism
+    ArchivingPreferencesGroup->setEnabled(false);
+    ArchivingStoragesGroup->setEnabled(false);
+
+    XMPP::Task *root = account()->client()->rootTask();
+    m_archiveManager = createArchivingTask();
+    m_archiveManager->requestPrefs();
 }
 
 #include "jabbereditaccountwidget.moc"

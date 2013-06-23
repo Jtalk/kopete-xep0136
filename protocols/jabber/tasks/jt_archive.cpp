@@ -34,9 +34,18 @@ JT_Archive::JT_Archive(Task *const parent)
     : Task(parent)
 {
     m_preferences = new JT_Archive_Helper::Preferences();
+    connect(m_preferences,
+            SIGNAL(archivingMethodChanged(QString,QString)),
+            SIGNAL(archivingMethodChanged(QString,QString)));
+    connect(m_preferences,
+            SIGNAL(automaticArchivingEnable(bool,QString)),
+            SIGNAL(automaticArchivingEnable(bool,QString)));
+    connect(m_preferences,
+            SIGNAL(defaultPreferenceChanged(QString,QString,uint)),
+            SIGNAL(defaultPreferenceChanged(QString,QString,uint)));
 }
 
-void JT_Archive::onGo()
+void JT_Archive::requestPrefs()
 {
     // We must request our stored settings
     QDomElement request = uniformPrefsRequest();

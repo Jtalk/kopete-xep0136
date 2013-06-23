@@ -44,8 +44,13 @@ public:
 
     JT_Archive(Task *const parent);
 
-    virtual void onGo();
+    virtual void requestPrefs();
     virtual bool take(const QDomElement &);
+
+signals:
+    void automaticArchivingEnable(bool,QString scope); // <auto save='true|false' scope='global|stream'/>
+    void defaultPreferenceChanged(QString saveMode,QString otr,uint expire); // <default save='#Save' otr='#Otr' expire='12345'/>
+    void archivingMethodChanged(QString method,QString use); // <method type='auto|manual|local' use='concede|prefer|forbid'/>
 
 protected:
     /**

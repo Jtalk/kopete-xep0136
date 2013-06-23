@@ -27,6 +27,8 @@
 #include "ui_dlgjabbereditaccountwidget.h"
 #include "jabberprotocol.h"
 
+#include "tasks/jt_archive.h"
+
 /**
   *@author Till Gerken <till@tantalo.net>
   */
@@ -55,9 +57,17 @@ private slots:
 	void awayPriorityToggled (bool);
 	void updateServerField ();
 	void slotPrivacyListsClicked ();
+    void initAutomaticArchiving();
+
+    void slotAutomaticArchivingEnable(bool,QString scope);
+    void slotDefaultPreferenceChanged(QString saveMode,QString otr,uint expire);
+    void slotArchivingMethodChanged(QString method,QString use);
+
 
 private:
 	JabberProtocol *m_protocol;
+    JT_Archive *m_archiveManager;
+
 
 #ifdef JINGLE_SUPPORT
 	QList<Item> outputDevices;
