@@ -42,26 +42,10 @@ public:
     static const QString NS; // urn:xmpp:archive
     static bool hasValidNS(QDomElement);
 
-    enum QueryType {
-        Get,            // <iq type='get'>
-        Set,            // <iq type=... etc.
-        Result,
-        Acknowledgement, // Empty iq. Server uses them to show us an acknowlegement of changes previously sent to it.
-        Error,
-        NO_ARCHIVE      // This stanza is not supposed to be handled by an archiving task
-    };
-
     JT_Archive(Task *const parent);
 
     virtual void onGo();
     virtual bool take(const QDomElement &);
-
-    //strToPref(const QString&);
-
-    // Setters and getters.
-    // I skip any enum validation, because if one wish to shoot his leg, no one
-    // can ever stop him from doing this.
-//#error SETTING_VALUES?
 
 protected:
     /**

@@ -33,13 +33,11 @@ bool JT_Archive::hasValidNS(QDomElement e)
 JT_Archive::JT_Archive(Task *const parent)
     : Task(parent)
 {
-    qDebug() << "Archiving class is created";
     m_preferences = new JT_Archive_Helper::Preferences();
 }
 
 void JT_Archive::onGo()
 {
-    qDebug() << "Archiving stanza sent";
     // We must request our stored settings
     QDomElement request = uniformPrefsRequest();
     send(request);
@@ -60,7 +58,7 @@ QDomElement JT_Archive::uniformPrefsRequest()
     return prefsRequest;
 }
 
-bool isPref(const QDomElement &elem)
+static inline bool isPref(const QDomElement &elem)
 {
     return elem.tagName() == "pref";
 }
@@ -89,12 +87,12 @@ bool JT_Archive::handleGet(const QDomElement &wholeElement, const QDomElement &n
     return false;
 }
 
-bool isList(const QDomElement &elem)
+static inline bool isList(const QDomElement &elem)
 {
     return elem.tagName() == "list";
 }
 
-bool isChat(const QDomElement &elem)
+static inline bool isChat(const QDomElement &elem)
 {
     return elem.tagName() == "chat";
 }
@@ -124,7 +122,7 @@ bool JT_Archive::handleError(const QDomElement &wholeElement, const QDomElement 
     return true;
 }
 
-bool isIq(const QDomElement &e)
+static inline bool isIq(const QDomElement &e)
 {
     return e.tagName() == "iq";
 }
@@ -157,7 +155,6 @@ bool JT_Archive::take(const QDomElement &e)
     QDomElement internalTag = e.firstChild().toElement();
     QString id = e.attribute("id");
     // TODO: If we should do something on acknowledgement package receiving?
-    qDebug() << e.text();
     return (this->*chooseHandler(e))(e, internalTag, id);
 }
 

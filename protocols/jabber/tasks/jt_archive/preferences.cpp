@@ -2,7 +2,6 @@
 #include <QtCore/QVariant>
 #include <QtCore/QDebug>
 
-
 const QSet<QString> JT_Archive_Helper::Preferences::legalScopes = QSet<QString>() << "global" << "stream";
 const QString  JT_Archive_Helper::Preferences::defaultScope = "global";
 const QSet<QString>  JT_Archive_Helper::Preferences::legalSaveModes = QSet<QString>()
@@ -26,13 +25,13 @@ const QSet<QString>  JT_Archive_Helper::Preferences::legalStoragePriorities = QS
         << "concede"
         << "prefer";
 
-bool verifyAutoTag(const QDomElement &autoTag)
+static inline bool verifyAutoTag(const QDomElement &autoTag)
 {
     return autoTag.childNodes().isEmpty()
             && autoTag.attributes().contains("save");
 }
 
-bool hasScope(const QDomElement &autoTag)
+static inline bool hasScope(const QDomElement &autoTag)
 {
     return autoTag.attributes().contains("scope");
 }
@@ -56,7 +55,7 @@ bool JT_Archive_Helper::Preferences::handleAutoTag(const QDomElement &autoTag)
     }
 }
 
-bool verifyDefaultTag(const QDomElement &defaultTag)
+static inline bool verifyDefaultTag(const QDomElement &defaultTag)
 {
     return defaultTag.childNodes().isEmpty()
             && defaultTag.attributes().contains("save")
@@ -93,7 +92,7 @@ bool JT_Archive_Helper::Preferences::handleSessionTag(const QDomElement &)
     return true;
 }
 
-bool verifyMethodTag(const QDomElement &tag) {
+static inline bool verifyMethodTag(const QDomElement &tag) {
     return tag.childNodes().isEmpty()
             && tag.attributes().contains("type")
             && tag.attributes().contains("use");
