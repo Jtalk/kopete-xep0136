@@ -47,6 +47,7 @@
 #include "privacydlg.h"
 
 #include "xmpp.h"
+#include "tasks/jt_archive.h"
 
 #ifdef JINGLE_SUPPORT
 //FIXME:Should be replaced by Solid.
@@ -118,10 +119,20 @@ JabberEditAccountWidget::JabberEditAccountWidget (JabberProtocol * proto, Jabber
 		
 		privacyListsButton->setEnabled (false);
 	}
+
+    // Setup automatic archiving settings in accordance with server settings
+    if (account()->isConnected()) {
+        ArchivingPreferences->setEnabled(true);
+        initAutomaticArchiving();
+    } else {
+        // Hideout all the setting because automatic archiving is mainly a server-side thing
+        //ArchivingPreferences->setEnabled(false);
+    }
 }
 
 JabberEditAccountWidget::~JabberEditAccountWidget ()
 {
+    delete m_archiveManager;
 }
 
 
@@ -450,7 +461,58 @@ void JabberEditAccountWidget::sslToggled (bool value)
 void JabberEditAccountWidget::slotPrivacyListsClicked()
 {
 	PrivacyDlg * dialog = new PrivacyDlg (account(), this);
-	dialog->show();
+    dialog->show();
+}
+
+void JabberEditAccountWidget::initAutomaticArchiving()
+{
+    // We hide those groups until preferences are delivered via signal-slot mechanism
+    AAEnableCheckBox->setEnabled(false);
+    AASavePolicyBox->setEnabled(false);
+    AARemoteStorageBox->setEnabled(false);
+    AALocalStorageBox->setEnabled(false);
+
+    XMPP::Task *root = account()->client()->rootTask();
+    m_archiveManager = new JT_Archive(root);
+
+    connect(m_archiveManager, SIGNAL(automaticArchivingEnable(bool,JT_Archive::AutoScope)),
+            SLOT(slotAutomaticArchivingEnable(bool,JT_Archive::AutoScope)));
+    connect(m_archiveManager, SIGNAL(defaultPreferenceChanged(JT_Archive::DefaultSave,JT_Archive::DefaultOtr,uint)),
+            SLOT(slotDefaultPreferenceChanged(JT_Archive::DefaultSave,JT_Archive::DefaultOtr,uint)));
+    connect(m_archiveManager, SIGNAL(archivingMethodChanged(JT_Archive::MethodType,JT_Archive::MethodUse)),
+            SLOT(slotArchivingMethodChanged(JT_Archive::MethodType,JT_Archive::MethodUse)));
+
+    m_archiveManager->requestPrefs();
+}
+
+void JabberEditAccountWidget::slotAutomaticArchivingEnable(bool isEnabled,JT_Archive::AutoScope scope)
+{
+    Q_UNUSED(scope)
+    qDebug("enabled");
+    AAEnableCheckBox->setEnabled(true);
+    AAEnableCheckBox->setChecked(isEnabled);
+}
+
+void JabberEditAccountWidget::slotDefaultPreferenceChanged(JT_Archive::DefaultSave saveMode,JT_Archive::DefaultOtr otr,uint expire)
+{
+    Q_UNUSED(otr)
+    Q_UNUSED(expire)
+    qDebug("prefsChanged");
+    AASavePolicyBox->setEnabled(true);
+    AASavePolicyBox->setCurrentIndex((int)saveMode);
+}
+
+void JabberEditAccountWidget::slotArchivingMethodChanged(JT_Archive::MethodType method,JT_Archive::MethodUse use)
+{
+    qDebug("MethodChanged");
+    QComboBox *neededBox = 0;
+    switch (method) {
+    case JT_Archive::MethodTypeAuto: neededBox = AARemoteStorageBox; break;
+    case JT_Archive::MethodTypeLocal: neededBox = AALocalStorageBox; break;
+    default: return;
+    }
+    neededBox->setEnabled(true);
+    neededBox->setCurrentIndex((int)use);
 }
 
 #include "jabbereditaccountwidget.moc"

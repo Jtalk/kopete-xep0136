@@ -816,7 +816,8 @@ JabberClient::ErrorCode JabberClient::connect ( const XMPP::Jid &jid, const QStr
 	features.addFeature("jabber:x:event");                         // XEP-0022: Message Events
 	features.addFeature("jabber:x:signed");                        // XEP-0027: Current OpenPGP Usage
 	features.addFeature("urn:xmpp:delay");                         // XEP-0203: Delayed Delivery
-	features.addFeature("urn:xmpp:receipts");                      // XEP-0184: Message Delivery Receipts
+    features.addFeature("urn:xmpp:receipts");                      // XEP-0184: Message Delivery Receipts
+    features.addFeature("urn:xmpp:archive");                       // XEP-0136: Message Archiving
 	d->jabberClient->setFeatures(features);
 
 	// Additional features supported by libiris, but not yet by Kopete:
@@ -825,7 +826,7 @@ JabberClient::ErrorCode JabberClient::connect ( const XMPP::Jid &jid, const QStr
 	// http://jabber.org/protocol/rosterx                          // XEP-0144: Roster Item Exchange
 
 
-	d->jabberClient->connectToServer ( d->jabberClientStream, jid, auth );
+    d->jabberClient->connectToServer ( d->jabberClientStream, jid, auth );
 
 	return Ok;
 

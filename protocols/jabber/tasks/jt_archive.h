@@ -25,91 +25,108 @@
 #include <QtCore/QMap>
 #include <QtCore/QString>
 #include <QtCore/QPair>
-
-#include <QtCore/QMetaObject>
+#include <QtCore/QVariant>
 #include <QtCore/QMetaEnum>
+#include <QtCore/QMetaObject>
+#include <QtXml/QDomElement>
 
 #include "xmpp_task.h"
-#include "xmpp_jid.h"
 #include "xmpp_xdata.h"
 
-class QDomElement;
-using XMPP::Task;
 
-class JT_Archive : public Task
+class JT_Archive : public XMPP::Task
 {
     Q_OBJECT
-    Q_ENUMS( Scope )
-    Q_ENUMS( Save )
-    Q_ENUMS( Otr )
-    Q_ENUMS( Type )
-    Q_ENUMS( Use )
+    Q_ENUMS( TagNames )
+    Q_ENUMS( AutoScope )
+    Q_ENUMS( DefaultSave )
+    Q_ENUMS( DefaultOtr )
+    Q_ENUMS( MethodType )
+    Q_ENUMS( MethodUse )
 public:
     static const QString NS; // urn:xmpp:archive
     static bool hasValidNS(QDomElement);
 
+    /// Possible tag names
+    enum TagNames {
+        Auto,
+        Default,
+        Method,
+        Item,
+        Session
+    };
+
     /// Scope of archiving setting: forever or for the current stream only
-    enum Scope { Global, Stream };
+    enum AutoScope {
+        AutoScopeGlobal,
+        AutoScopeStream
+    };
+    static const AutoScope defaultScope;
 
     /// Which part of the messaging stream should we store?
-    enum Save {
-        Body,       // Only <body> text
-        False,      // Nothing
-        Message,    // The whole <message> XML
-        Stream      // The whole stream, byte-to-byte
+    enum DefaultSave {
+        DefaultSaveFalse,
+        DefaultSaveBody,
+        DefaultSaveMessage,
+        DefaultSaveStream
     };
 
     /// How do we proceed Off-the-Record?
-    enum Otr {
-        Approve,    // the user MUST explicitly approve off-the-record communication.
-        Concede,    // communications MAY be off the record if requested by another user.
-        Forbid,     // communications MUST NOT be off the record.
-        Oppose,     // communications SHOULD NOT be off the record even if requested.
-        Prefer,     // communications SHOULD be off the record if possible.
-        Require    // communications MUST be off the record.
+    enum DefaultOtr {
+        DefaultOtrConcede,
+        DefaultOtrPrefer,
+        DefaultOtrForbid,
+        DefaultOtrApprove,
+        DefaultOtrOppose,
+        DefaultOtrRequire
     };
 
     /// Where and how hard does user prefer to store archive?
-    enum Type {
-        Auto,   // Server-side automatic archiving
-        Local,  // Archiving to the local file/database
-        Manual  // Manual server-side archiving
+    enum MethodType {
+        MethodTypeAuto,
+        MethodTypeLocal,
+        MethodTypeManual
     };
-    enum Use {
-        Concede,    // Use if no other methods are available
-        Forbid,     // Never use this method
-        Prefer     // Use if available
+    enum MethodUse {
+        MethodUseConcede,
+        MethodUsePrefer,
+        MethodUseForbid
     };
 
-    JT_Archive(const Task *parent);
+    static const uint defaultExpiration = (uint)-1;
 
-    void go(bool autoDelete = false);
+
+    bool writePrefs(const QDomElement&);
+    bool writePref(const QDomElement&);
+    QString readPref(const QString &name);
+    QDomElement uniformDomElement(const QString &name);
+
+protected:
+    bool setPref(const QString& name, const QVariant& value);
+
+    bool handleAutoTag(const QDomElement&);
+    bool handleDefaultTag(const QDomElement&);
+    bool handleItemTag(const QDomElement&);
+    bool handleSessionTag(const QDomElement&);
+    bool handleMethodTag(const QDomElement&);
+
+signals:
+    void automaticArchivingEnable(bool,JT_Archive::AutoScope scope); // <auto save='true|false' scope='global|stream'/>
+    void defaultPreferenceChanged(JT_Archive::DefaultSave saveMode,JT_Archive::DefaultOtr otr,uint expire); // <default save='#Save' otr='#Otr' expire='12345'/>
+    void archivingMethodChanged(JT_Archive::MethodType method,JT_Archive::MethodUse use); // <method type='auto|manual|local' use='concede|prefer|forbid'/>
+
+public:
+    static const QMetaEnum s_TagNamesEnum;
+    static const QMetaEnum s_AutoScopeEnum;
+    static const QMetaEnum s_DefaultSaveEnum;
+    static const QMetaEnum s_DefaultOtrEnum;
+    static const QMetaEnum s_MethodTypeEnum;
+    static const QMetaEnum s_MethodUseEnum;
+
+    JT_Archive(Task *const parent);
+
+    virtual void requestPrefs();
     virtual bool take(const QDomElement &);
-
-    strToPref(const QString&);
-
-    // Setters and getters.
-    // I skip any enum validation, because if one wish to shoot his leg, no one
-    // can ever stop him from doing so.
-    void setScope(Scope sc = Stream);
-    void setScope(const QString &s);
-    Scope scope();
-    QString scope();
-
-    void setSaveMode(Save sm = Message);
-    void setSaveMode(const QString &s);
-    Save saveMode();
-    QString saveMode();
-
-    void setOTRMode(Otr otrm = Approve);
-    void setOTRMode(const QString &s);
-    Otr otrMode();
-    QString otrMode();
-
-    void setArchiveStorage(Type am, Use ap);
-    void setArchiveStorage(const QString& am, const QString& ap);
-    Use archiveStorage(Type am);
-    QString archiveStorage(const QString& am);
 
 protected:
     /**
@@ -117,32 +134,19 @@ protected:
      * This function uses static NS element of the archiving class.
      * Result can be used to embed any XEP-0136 data.
      */
-    QDomElement uniformArchivingNS();
-
+    QDomElement uniformArchivingNS(const QString &tagName);
     QDomElement uniformPrefsRequest();
 
-    QDomElement uniformPrefsSetting();
+    typedef bool (JT_Archive::*AnswerHandler)(const QDomElement&, const QDomElement&, const QString&);
+    AnswerHandler chooseHandler(const QDomElement&);
 
-    bool parsePerfs(const QDomElement &);
 private:
-    /**
-     * \brief initMetaEnums extracts enumerations information from the Qt meta system.
-     * This will initialize static QMetaEnum members for further use.
-     */
-    void initMetaEnums();
-
-    Scope m_Scope;
-    static const QMetaEnum m_ScopeEnum;
-
-    Save m_Save;
-    static const QMetaEnum m_SaveEnum;
-
-    Otr m_Otr;
-    static const QMetaEnum m_OtrEnum;
-
-    QMap<Type, Use> m_StorageSetting;
-    static const QMetaEnum m_TypeEnum;
-    static const QMetaEnum m_UseEnum;
+    bool handleSet(const QDomElement&, const QDomElement&, const QString&);
+    bool handleGet(const QDomElement&, const QDomElement&, const QString&);
+    bool handleResult(const QDomElement&, const QDomElement&, const QString&);
+    bool handleError(const QDomElement&, const QDomElement&, const QString&);
+    bool skip(const QDomElement&, const QDomElement&, const QString&) { return false; }
+    bool acknowledge(const QDomElement&, const QDomElement&, const QString&) { return true; }
 };
 
-#endif JT_ARCHIVE_H
+#endif

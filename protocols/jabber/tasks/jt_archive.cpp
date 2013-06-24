@@ -18,26 +18,8 @@
 #include "xmpp_xmlcommon.h"
 #include "xmpp_client.h"
 
-/// Let's have some fun! Using macro concatenation and Qt's metasystem to convert string
-/// representation of the enum value
-#define getEnumData(enumName, keyName, method) static_cast<enumName>( m_ ## enumName ## Enum. ## method ## ( keyName ));
-#define getEnumKey(enumName, keyName) getEnumData(enumName, keyName, keyToValue)
-#define getEnumValue(enumName, keyName) getEnumData(enumName, keyName, valueToKey)
-
-/// We need capitalized properties names for QMetaEnum
-inline QString capitalize(QString str)
-{
-    str = str.toLower();
-    str[0] = str[0].toUpper();
-    return str;
-}
-
-/// Since enums in C++ are extremly dumb and the language itself gives us no way to check
-/// their casting properly, we need this nail.
-#define validateEnum(enumName, value) m_ ## enumName ## Enum.valueToKey(value) != -1
-#define setEnumValue(enumName, value) if (validateEnum(enumName,value)) { m_ ## enumName ## = value; } \
-    else { qDebug() << "In " << __FILE__ << ":" << __LINE__ << " error: wrong enum, " << (int)value; }
-
+/// Static member initialization, XMPP NS field for archiving stanzas
+const QString JT_Archive::NS = "urn:xmpp:archive";
 
 bool JT_Archive::hasValidNS(QDomElement e)
 {
@@ -46,29 +28,22 @@ bool JT_Archive::hasValidNS(QDomElement e)
     return found && perf.attribute("xmlns") == NS;
 }
 
-JT_Archive::JT_Archive(const Task *parent)
+JT_Archive::JT_Archive(Task *const parent)
     : Task(parent)
 {
-    // Static member initialization, XMPP NS field for archiving stanzas
-    const QString JT_Archive::NS = "urn:xmpp:archive";
-
-    setScope();
-    setSaveMode();
-    setOTRMode();
-
-    // We are setting auto-archiving as forbidden by default because server-side
-    // storing is a security breakdown if server location is not protected against
-    // unauthorized access. User must explicitly allow server-side archiving.
-    setArchiveStorage(Auto, Forbid);
-    setArchiveStorage(Local, Prefer);
-    setArchiveStorage(Manual, Concede);
-
 }
 
-QDomElement JT_Archive::uniformArchivingNS()
+void JT_Archive::requestPrefs()
 {
-    QDomElement archiveNamespace = doc()->createElement("pref");
-    perfsRequestBody.setAttribute("xmlns", NS);
+    // We must request our stored settings
+    QDomElement request = uniformPrefsRequest();
+    send(request);
+}
+
+QDomElement JT_Archive::uniformArchivingNS(const QString &tagName)
+{
+    QDomElement archiveNamespace = doc()->createElement(tagName);
+    archiveNamespace.setAttribute("xmlns", NS);
     return archiveNamespace;
 }
 
@@ -76,120 +51,107 @@ QDomElement JT_Archive::uniformPrefsRequest()
 {
     // TODO: take care of the proper ID.
     QDomElement prefsRequest = createIQ(doc(), "get", "", "msgarch1");
-    prefsRequest.appendChild( uniformArchivingNS() );
-    return perfsRequest;
+    prefsRequest.appendChild( uniformArchivingNS("pref") );
+    return prefsRequest;
 }
 
-QDomElement JT_Archive::uniformPrefsSetting()
+static inline bool isPref(const QDomElement &elem)
 {
+    return elem.tagName() == "pref";
 }
 
-bool JT_Archive::parsePerfs(const QDomElement &e)
+bool JT_Archive::handleSet(const QDomElement &wholeElement, const QDomElement &noIq, const QString &sessionID)
 {
-    for(QDomNode n = e.firstChild(); !n.isNull(); n = n.nextSibling()) {
-        QDomElement current = n.toElement();
+    Q_UNUSED(sessionID)
+    Q_UNUSED(wholeElement)
+    // Server pushes us new preferences, let's save them!
+    // Server must send us 'set' requests only for new settings
+    // pushing, so, if there's no <pref> tag inside <iq>, the
+    // stanza is incorrect and should not be further processed.
+    if (isPref(noIq)) {
+        return writePrefs(noIq);
+    } else {
+        return false;
+    }
+}
 
-        if(current.isNull()) {
-            continue;
+bool JT_Archive::handleGet(const QDomElement &wholeElement, const QDomElement &noIq, const QString &sessionID)
+{
+    Q_UNUSED(sessionID)
+    Q_UNUSED(noIq)
+    // That's weird. Server is not supposed to send GET IQs
+    return false;
+}
+
+static inline bool isList(const QDomElement &elem)
+{
+    return elem.tagName() == "list";
+}
+
+static inline bool isChat(const QDomElement &elem)
+{
+    return elem.tagName() == "chat";
+}
+
+bool JT_Archive::handleResult(const QDomElement &wholeElement, const QDomElement &noIq, const QString &sessionID)
+{
+    Q_UNUSED(sessionID)
+    Q_UNUSED(wholeElement)
+    if (isPref(noIq)) {
+        return writePrefs(noIq);
+    } else if (isList(noIq)) {
+#warning Collection manager is needed there
+        //emit collectionListReceived(noIq);
+        return true;
+    } else if (isChat(noIq)) {
+#warning And there
+        //emit collectionItemReceived(noIq);
+        return true;
+    } else return false;
+}
+
+bool JT_Archive::handleError(const QDomElement &wholeElement, const QDomElement &noIq, const QString &sessionID)
+{
+    Q_UNUSED(sessionID)
+    Q_UNUSED(wholeElement)
+    Q_UNUSED(noIq)
+    return true;
+}
+
+static inline bool isIq(const QDomElement &e)
+{
+    return e.tagName() == "iq";
+}
+
+/**
+ * Converting text from XML to enumerations.
+ */
+JT_Archive::AnswerHandler JT_Archive::chooseHandler(const QDomElement &e)
+{
+    // TODO: Fix this ugly mess somehow
+    if (isIq(e)) {
+        if (e.childNodes().isEmpty() && e.attribute("type") == "result") {
+            return &JT_Archive::acknowledge;
+        } else if (e.attribute("type") == "get") {
+            return &JT_Archive::handleGet;
+        } else if (e.attribute("type") == "set") {
+            return &JT_Archive::handleSet;
+        } else if (e.attribute("type") == "result") {
+            return &JT_Archive::handleResult;
+        } else if (e.attribute("type") == "error") {
+            return &JT_Archive::handleError;
         }
     }
+    return &JT_Archive::skip;
 }
 
-
-void JT_Archive::initMetaEnums()
+bool JT_Archive::take(const QDomElement &e)
 {
-    QMetaObject metaObject = JT_Archive::staticMetaObject;
-    const JT_Archive::m_ScopeEnum = metaObject.enumerator( metaObject.indexOfEnumerator( "Scope" ) );
-    const JT_Archive::m_SaveModeEnum = metaObject.enumerator( metaObject.indexOfEnumerator( "Save" ) );
-    const JT_Archive::m_OTRModeEnum = metaObject.enumerator( metaObject.indexOfEnumerator( "Otr" ) );
-    const JT_Archive::m_ArchiveMethodEnum = metaObject.enumerator( metaObject.indexOfEnumerator( "Type" ) );
-    const JT_Archive::m_ArchivePriorityEnum = metaObject.enumerator( metaObject.indexOfEnumerator( "Use" ) );
+    // TODO: Should we look through all tags instead?
+    QDomElement internalTag = e.firstChild().toElement();
+    QString id = e.attribute("id");
+    if (hasValidNS(e)) {
+        // TODO: If we should do something on acknowledgement package receiving?
+        return (this->*chooseHandler(e))(e, internalTag, id);
+    } else return false;
 }
-
-void JT_Archive::setScope(JT_Archive::Scope sc)
-{
-    setEnumValue(Scope, sc);
-}
-void JT_Archive::setScope(const QString &s)
-{
-    setScope( getEnumKey(Scope, s) );
-}
-
-Scope JT_Archive::scope()
-{
-    return m_Scope;
-
-}
-QString JT_Archive::scope()
-{
-    return getEnumValue(Scope, m_Scope);
-}
-
-void JT_Archive::setSaveMode(JT_Archive::Save sm)
-{
-    setEnumValue(Save, sm);
-}
-
-void JT_Archive::setSaveMode(const QString &s)
-{
-    setSaveMode( getEnumKey(Save, s) );
-}
-
-JT_Archive::Save JT_Archive::saveMode()
-{
-    return m_Save;
-}
-
-QString JT_Archive::saveMode()
-{
-    return getEnumValue(Save, m_Save)
-}
-
-void JT_Archive::setOTRMode(JT_Archive::Otr otrm)
-{
-    setEnumValue(Otr, sm);
-}
-
-void JT_Archive::setOTRMode(const QString &s)
-{
-    setOTRMode( getEnumKey(Otr, s) );
-}
-
-JT_Archive::Otr JT_Archive::otrMode()
-{
-    return m_Otr;
-}
-
-QString JT_Archive::otrMode()
-{
-    return getEnumValue(Otr, m_Otr);
-}
-
-void JT_Archive::setArchiveStorage(JT_Archive::Type am, JT_Archive::Use ap)
-{
-    if (validateEnum(Type, am) && validateEnum(Use, ap)) {
-        m_StorageSetting[am] = ap;
-    } else {
-        qDebug() << "In " << __FILE__ << ":" << __LINE__ << " error: wrong enums, " << (int)am << "\t" << (int)ap;
-    }
-}
-
-void JT_Archive::setArchiveStorage(const QString &am, const QString &ap)
-{
-    JT_Archive::Type am_enum = getEnumKey(Type, am);
-    JT_Archive::Use ap_enum = getEnumKey(Use, ap);
-    setArchiveStorage(am_enum, ap_enum);
-}
-
-JT_Archive::Use JT_Archive::archiveStorage(JT_Archive::Type am)
-{
-    return m_StorageSetting[am];
-}
-
-QString JT_Archive::archiveStorage(const QString &am)
-{
-    JT_Archive::Type am_enum = getEnumKey(Type, am);
-    JT_Archive::Use use_enum = archiveStorage(am_enum);
-    return getEnumData(Use, use_enum);
-}
-

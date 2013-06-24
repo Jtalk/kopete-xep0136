@@ -111,12 +111,13 @@ set(kopete_jabber_PART_SRCS
    tasks/jt_xsearch.cpp
    tasks/jt_xregister.cpp
    tasks/jt_pubsub.cpp
+   tasks/jt_archive.cpp
+   tasks/jt_archive/preferences.cpp
+   tasks/jt_archive/preferences_meta.cpp
    tasks/mood.cpp
    tasks/privacylistitem.cpp
    tasks/privacylist.cpp
    tasks/privacymanager.cpp
-   tasks/jt_archive.cpp
-   tasks/jt_archive/parser.cpp
    ${kopete_jabber_ui_SRCS} 
    jabberprotocol.cpp 
    jabberaccount.cpp 
