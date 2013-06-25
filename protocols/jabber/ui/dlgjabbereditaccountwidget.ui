@@ -773,12 +773,12 @@ If two resources have the same priority, the messages will be sent to the one mo
               </item>
               <item>
                <property name="text">
-                <string>Do not use this method</string>
+                <string>Prefer this method</string>
                </property>
               </item>
               <item>
                <property name="text">
-                <string>Prefer this method</string>
+                <string>Do not use this method</string>
                </property>
               </item>
              </widget>
@@ -792,12 +792,12 @@ If two resources have the same priority, the messages will be sent to the one mo
               </item>
               <item>
                <property name="text">
-                <string>Do not use this method</string>
+                <string>Prefer this method</string>
                </property>
               </item>
               <item>
                <property name="text">
-                <string>Prefer this method</string>
+                <string>Do not use this method</string>
                </property>
               </item>
              </widget>

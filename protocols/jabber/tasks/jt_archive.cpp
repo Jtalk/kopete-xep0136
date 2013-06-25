@@ -21,7 +21,7 @@
 /// Static member initialization, XMPP NS field for archiving stanzas
 const QString JT_Archive::NS = "urn:xmpp:archive";
 
-bool JT_Archive::hasValidNS(QDomElement e)
+bool JT_Archive::hasValidNS(const QDomElement &e)
 {
     bool found = false;
     QDomElement perf = findSubTag(e, "pref", &found);
@@ -31,6 +31,7 @@ bool JT_Archive::hasValidNS(QDomElement e)
 JT_Archive::JT_Archive(Task *const parent)
     : Task(parent)
 {
+    // TODO: Make residential mode for acknowledgements handling.
 }
 
 void JT_Archive::requestPrefs()
@@ -38,6 +39,15 @@ void JT_Archive::requestPrefs()
     // We must request our stored settings
     QDomElement request = uniformPrefsRequest();
     send(request);
+}
+
+QDomElement JT_Archive::uniformUpdate(const QDomElement &tag)
+{
+    QDomElement prefsUpdate = createIQ(doc(), "set", "", client()->genUniqueId());
+    QDomElement prefTag = uniformArchivingNS("pref");
+    prefTag.appendChild(tag);
+    prefsUpdate.appendChild(prefTag);
+    return prefsUpdate;
 }
 
 QDomElement JT_Archive::uniformArchivingNS(const QString &tagName)
@@ -50,7 +60,7 @@ QDomElement JT_Archive::uniformArchivingNS(const QString &tagName)
 QDomElement JT_Archive::uniformPrefsRequest()
 {
     // TODO: take care of the proper ID.
-    QDomElement prefsRequest = createIQ(doc(), "get", "", "msgarch1");
+    QDomElement prefsRequest = createIQ(doc(), "get", "", client()->genUniqueId());
     prefsRequest.appendChild( uniformArchivingNS("pref") );
     return prefsRequest;
 }

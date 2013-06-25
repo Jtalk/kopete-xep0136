@@ -293,6 +293,10 @@ Kopete::Account *JabberEditAccountWidget::apply ()
 
 	static_cast<JabberAccount*>(account())->setS5BServerPort ( sbLocalPort->value () );
 
+    // Save archiving preferences. This is a pure server-side setting, so we won't
+    // store anything localy.
+    updateArchiveManager();
+
 	return account();
 }
 
@@ -485,6 +489,17 @@ void JabberEditAccountWidget::initAutomaticArchiving()
     m_archiveManager->requestPrefs();
 }
 
+void JabberEditAccountWidget::updateArchiveManager()
+{
+    // We don't want to affect scope value, -1 will make JT_Archive skip this parameter.
+    m_archiveManager->updateAuto(AAEnableCheckBox->isEnabled(), (JT_Archive::AutoScope)-1);
+    // OTR setting is not implemented, see protocols/jabber/tasks/jt_archive.h for details.
+    m_archiveManager->updateDefault((JT_Archive::DefaultSave)AASavePolicyBox->currentIndex(), JT_Archive::DefaultOtr_approve, (uint)-1);
+    // Manual archiving is not implemented (mainly due to it's uselessness.
+    m_archiveManager->updateStorage(JT_Archive::MethodType_auto, (JT_Archive::MethodUse)AARemoteStorageBox->currentIndex());
+    m_archiveManager->updateStorage(JT_Archive::MethodType_local,(JT_Archive::MethodUse)AALocalStorageBox->currentIndex());
+}
+
 void JabberEditAccountWidget::slotAutomaticArchivingEnable(bool isEnabled,JT_Archive::AutoScope scope)
 {
     Q_UNUSED(scope)
@@ -507,8 +522,8 @@ void JabberEditAccountWidget::slotArchivingMethodChanged(JT_Archive::MethodType 
     qDebug("MethodChanged");
     QComboBox *neededBox = 0;
     switch (method) {
-    case JT_Archive::MethodTypeAuto: neededBox = AARemoteStorageBox; break;
-    case JT_Archive::MethodTypeLocal: neededBox = AALocalStorageBox; break;
+    case JT_Archive::MethodType_auto: neededBox = AARemoteStorageBox; break;
+    case JT_Archive::MethodType_local: neededBox = AALocalStorageBox; break;
     default: return;
     }
     neededBox->setEnabled(true);

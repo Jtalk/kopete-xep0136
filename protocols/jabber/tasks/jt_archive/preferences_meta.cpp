@@ -7,4 +7,4 @@ const QMetaEnum JT_Archive::s_DefaultOtrEnum = JT_Archive::staticMetaObject.enum
 const QMetaEnum JT_Archive::s_MethodTypeEnum = JT_Archive::staticMetaObject.enumerator( JT_Archive::staticMetaObject.indexOfEnumerator( "MethodType" ) );
 const QMetaEnum JT_Archive::s_MethodUseEnum = JT_Archive::staticMetaObject.enumerator( JT_Archive::staticMetaObject.indexOfEnumerator( "MethodUse" ) );
 
-const JT_Archive::AutoScope JT_Archive::defaultScope = JT_Archive::AutoScopeGlobal;
+const JT_Archive::AutoScope JT_Archive::defaultScope = JT_Archive::AutoScope_global;

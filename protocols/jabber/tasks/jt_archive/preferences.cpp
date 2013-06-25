@@ -23,9 +23,9 @@ static inline bool hasScope(const QDomElement &autoTag)
 }
 
 #define STR(x) # x
-#define STRCAT(x,y) QString(QString(x) + QString(y))
+#define STRCAT(x,y) QString(QString(x) + "_" + QString(y))
 #define EXTRACT_TAG(type, tag, name) (type)s_ ## type ## Enum.keyToValue(STRCAT(STR(type) \
-    , capitalize(tag.attribute(name))).toAscii())
+    , tag.attribute(name)).toAscii())
 
 bool JT_Archive::handleAutoTag(const QDomElement &autoTag)
 {
@@ -124,4 +124,39 @@ bool JT_Archive::writePref(const QDomElement &elem)
     case Method: return handleMethodTag(elem);
     default: return false;
     }
+}
+
+#define VALUE(type, value) QString( s_ ## type ## Enum.valueToKey(value) ).remove(QLatin1String(# type) + "_")
+#define INSERT_TAG(type, tag, name, value) tag.setAttribute(name, VALUE(type, value))
+
+void JT_Archive::updateDefault(const JT_Archive::DefaultSave save,
+                               const JT_Archive::DefaultOtr otr,
+                               const uint expiration)
+{
+    Q_UNUSED(expiration)
+    QDomElement tag = doc()->createElement("default");
+    INSERT_TAG(DefaultSave, tag, "save", save);
+    INSERT_TAG(DefaultOtr, tag, "otr", otr);
+    QDomElement update = uniformUpdate(tag);
+    send(update);
+}
+
+void JT_Archive::updateAuto(bool isEnabled, const JT_Archive::AutoScope scope)
+{
+    QDomElement tag = doc()->createElement("auto");
+    tag.setAttribute("save", QVariant(isEnabled).toString());
+    if (scope != -1) {
+        INSERT_TAG(AutoScope, tag, "scope", scope);
+    }
+    QDomElement update = uniformUpdate(tag);
+    send(update);
+}
+
+void JT_Archive::updateStorage(const JT_Archive::MethodType method, const JT_Archive::MethodUse use)
+{
+    QDomElement tag = doc()->createElement("method");
+    INSERT_TAG(MethodType, tag, "type", method);
+    INSERT_TAG(MethodUse, tag, "use", use);
+    QDomElement update = uniformUpdate(tag);
+    send(update);
 }
