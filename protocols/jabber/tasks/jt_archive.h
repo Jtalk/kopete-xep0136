@@ -30,6 +30,8 @@
 #include <QtCore/QMetaObject>
 #include <QtXml/QDomElement>
 
+#include <KDateTime>
+
 #include "xmpp_task.h"
 #include "xmpp_xdata.h"
 
@@ -73,7 +75,10 @@ public:
      * must be handled by this class. This is also used in uniformArchivingNS()
      * for proper outgoing stanzas creation.
      */
-    static const QString NS; // urn:xmpp:archive
+    static const QString ArchivingNS; // urn:xmpp:archive
+    static const QString ResultSetManagementNS;
+    //static const QString XMPP_UTC_DATETIME_FORMAT;
+    //static const QString XMPP_ZONE_DATETIME_FORMAT;
     /**
      * @brief This function searches for a subtag with xmlns=#{JT_Archive::NS} parameter.
      * It's mainly a user-friendly wrapper for findSubTag() from Iris library.
@@ -144,6 +149,42 @@ public:
     static const QMetaEnum s_MethodTypeEnum;
     static const QMetaEnum s_MethodUseEnum;
 
+    struct CollectionsRequest {
+        CollectionsRequest() {}
+        CollectionsRequest(const QString &_with,
+                           const KDateTime &_start = KDateTime(),
+                           const KDateTime &_end = KDateTime(),
+                           const QString &_after = QString())
+            : with(_with),
+              start(_start),
+              end(_end),
+              after(_after) {}
+
+        QString with;
+        KDateTime start, end;
+        QString after;
+    };
+
+    struct RSMInfo {
+        RSMInfo() {}
+        RSMInfo(const QString &_first, const QString &_last, uint _count)
+            : first(_first),
+              last(_last),
+              count(_count) {}
+
+        QString first, last;
+        uint count;
+    };
+
+    struct ChatInfo {
+        ChatInfo() {}
+        ChatInfo(const QString &_with, const KDateTime &_time)
+            : with(_with),
+              time(_time) {}
+        QString with;
+        KDateTime time;
+    };
+
     /**
      * @param parent is a root Iris task.
      *
@@ -166,7 +207,7 @@ public:
      */
     virtual void requestPrefs();
 
-    virtual QDomElement uniformUpdate(const QDomElement&);
+    virtual void requestCollections(const CollectionsRequest&);
 
     virtual void updateDefault(const DefaultSave, const DefaultOtr, const uint expiration);
     virtual void updateAuto(bool isEnabled, const AutoScope = (AutoScope)-1);
@@ -196,6 +237,8 @@ public:
      */
     bool writePref(const QDomElement&);
 
+    bool collectionsListReceived(const QDomElement&);
+
 protected:
     /**
      * These functions are tags handlers. For every tag, writePref chooses proper
@@ -213,9 +256,25 @@ protected:
     bool handleSessionTag(const QDomElement&);
     bool handleMethodTag(const QDomElement&);
 
+    RSMInfo parseRSM(const QDomElement &);
+    QList<ChatInfo> parseChatInfo(const QDomElement &);
+
+    /**
+     * @brief uniformArchivingNS creates DOM element <tagName xmlns=NS></tagName>.
+     * This function uses static NS element of the archiving class.
+     * Result can be used to embed any XEP-0136 data.
+     */
+    QDomElement uniformArchivingNS(const QString &tagName);
+    QDomElement uniformPrefsRequest();
     QDomElement uniformAutoTag(bool, AutoScope);
     QDomElement uniformDefaultTag(DefaultSave, DefaultOtr, uint expiration);
     QDomElement uniformMethodTag(MethodType, MethodUse);
+    QDomElement uniformUpdate(const QDomElement&);
+    QDomElement uniformCollectionsRequest(const CollectionsRequest &params);
+    QDomElement uniformRsmNS(const QString &tagName);
+    QDomElement uniformRsmMax(uint max);
+    QDomElement uniformSkeletonCollectionsRequest(const QString &with);
+    QDomElement uniformRsm(const QString &after = QString());
 
 signals:
     /**
@@ -237,15 +296,9 @@ signals:
      */
     void archivingMethodChanged(JT_Archive::MethodType method,JT_Archive::MethodUse use);
 
-protected:
-    /**
-     * @brief uniformArchivingNS creates DOM element <pref xmlns=NS></pref>.
-     * This function uses static NS element of the archiving class.
-     * Result can be used to embed any XEP-0136 data.
-     */
-    QDomElement uniformArchivingNS(const QString &tagName);
-    QDomElement uniformPrefsRequest();
+    void collectionsReceived(QList<JT_Archive::ChatInfo>, JT_Archive::RSMInfo);
 
+protected:
     typedef bool (JT_Archive::*AnswerHandler)(const QDomElement&, const QDomElement&, const QString&);
     AnswerHandler chooseHandler(const QDomElement&);
 
