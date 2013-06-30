@@ -26,6 +26,7 @@
 #include <QtCore/QString>
 #include <QtCore/QPair>
 #include <QtCore/QVariant>
+#include <QtCore/QList>
 #include <QtCore/QMetaEnum>
 #include <QtCore/QMetaObject>
 #include <QtXml/QDomElement>
@@ -166,7 +167,7 @@ public:
     };
 
     struct RSMInfo {
-        RSMInfo() {}
+        RSMInfo() : count(0){}
         RSMInfo(const QString &_first, const QString &_last, uint _count)
             : first(_first),
               last(_last),
@@ -183,6 +184,17 @@ public:
               time(_time) {}
         QString with;
         KDateTime time;
+    };
+
+    struct ChatItem {
+        ChatItem() : isIncoming(true) {}
+        ChatItem(KDateTime _offset, const QString &_body, bool _isIncoming)
+            : time(_offset),
+              body(_body),
+              isIncoming(_isIncoming) {}
+        QString body;
+        KDateTime time;
+        bool isIncoming;
     };
 
     /**
@@ -208,6 +220,7 @@ public:
     virtual void requestPrefs();
 
     virtual void requestCollections(const CollectionsRequest&);
+    virtual void requestCollection(const CollectionsRequest &params);
 
     virtual void updateDefault(const DefaultSave, const DefaultOtr, const uint expiration);
     virtual void updateAuto(bool isEnabled, const AutoScope = (AutoScope)-1);
@@ -238,6 +251,7 @@ public:
     bool writePref(const QDomElement&);
 
     bool collectionsListReceived(const QDomElement&);
+    bool chatReceived(const QDomElement &);
 
 protected:
     /**
@@ -257,7 +271,7 @@ protected:
     bool handleMethodTag(const QDomElement&);
 
     RSMInfo parseRSM(const QDomElement &);
-    QList<ChatInfo> parseChatInfo(const QDomElement &);
+    QList<ChatInfo> parseChatsInfo(const QDomElement &);
 
     /**
      * @brief uniformArchivingNS creates DOM element <tagName xmlns=NS></tagName>.
@@ -271,9 +285,11 @@ protected:
     QDomElement uniformMethodTag(MethodType, MethodUse);
     QDomElement uniformUpdate(const QDomElement&);
     QDomElement uniformCollectionsRequest(const CollectionsRequest &params);
+    QDomElement uniformChatsRequest(const CollectionsRequest &params);
     QDomElement uniformRsmNS(const QString &tagName);
     QDomElement uniformRsmMax(uint max);
     QDomElement uniformSkeletonCollectionsRequest(const QString &with);
+    QDomElement uniformSkeletonChatsRequest(const QString &with);
     QDomElement uniformRsm(const QString &after = QString());
 
 signals:
@@ -297,6 +313,8 @@ signals:
     void archivingMethodChanged(JT_Archive::MethodType method,JT_Archive::MethodUse use);
 
     void collectionsReceived(QList<JT_Archive::ChatInfo>, JT_Archive::RSMInfo);
+
+    void chatReceived(QList<JT_Archive::ChatItem>, JT_Archive::RSMInfo);
 
 protected:
     typedef bool (JT_Archive::*AnswerHandler)(const QDomElement&, const QDomElement&, const QString&);

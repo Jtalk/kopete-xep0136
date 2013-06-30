@@ -18,7 +18,7 @@
 #include "xmpp_xmlcommon.h"
 #include "xmpp_client.h"
 
-const uint RSM_MAX = 30;
+const uint RSM_MAX = 100;
 
 /// Static member initialization, XMPP NS field for archiving stanzas
 const QString JT_Archive::ArchivingNS = "urn:xmpp:archive";
@@ -47,6 +47,12 @@ void JT_Archive::requestPrefs()
 void JT_Archive::requestCollections(const CollectionsRequest &params)
 {
     QDomElement requestIq = uniformCollectionsRequest(params);
+    send(requestIq);
+}
+
+void JT_Archive::requestCollection(const JT_Archive::CollectionsRequest &params)
+{
+    QDomElement requestIq = uniformChatsRequest(params);
     send(requestIq);
 }
 
@@ -116,17 +122,15 @@ static inline bool isChat(const QDomElement &elem)
 
 bool JT_Archive::handleResult(const QDomElement &wholeElement, const QDomElement &noIq, const QString &sessionID)
 {
+    qDebug() << "HandleResult";
     Q_UNUSED(sessionID)
     Q_UNUSED(wholeElement)
     if (isPref(noIq)) {
         return writePrefs(noIq);
     } else if (isList(noIq)) {
-        qDebug() << "handleResult";
         return collectionsListReceived(noIq);
     } else if (isChat(noIq)) {
-#warning And there
-        //return chatReceived(noIq);
-        return true;
+        return chatReceived(noIq);
     } else return false;
 }
 
@@ -153,11 +157,10 @@ JT_Archive::AnswerHandler JT_Archive::chooseHandler(const QDomElement &e)
         if (e.childNodes().isEmpty() && e.attribute("type") == "result") {
             return &JT_Archive::acknowledge;
         } else if (e.attribute("type") == "get") {
-            return &JT_Archive::handleGet;
+            return &JT_Archive::skip;
         } else if (e.attribute("type") == "set") {
             return &JT_Archive::handleSet;
         } else if (e.attribute("type") == "result") {
-            qDebug() << "chooseHandler";
             return &JT_Archive::handleResult;
         } else if (e.attribute("type") == "error") {
             return &JT_Archive::handleError;
@@ -191,7 +194,7 @@ static KDateTime XMPPtoDateTime(const QString &dt)
     return KDateTime::fromString(dt, KDateTime::RFC3339Date);
 }
 
-
+// TODO: Merge two methods below
 QDomElement JT_Archive::uniformCollectionsRequest(const CollectionsRequest &params)
 {
     QDomElement listTag = uniformSkeletonCollectionsRequest(params.with);
@@ -204,6 +207,21 @@ QDomElement JT_Archive::uniformCollectionsRequest(const CollectionsRequest &para
     listTag.appendChild( uniformRsm(params.after) );
     QDomElement iq = createIQ(doc(), "get", "", client()->genUniqueId());
     iq.appendChild(listTag);
+    return iq;
+}
+
+QDomElement JT_Archive::uniformChatsRequest(const JT_Archive::CollectionsRequest &params)
+{
+    QDomElement retrieveTag = uniformSkeletonChatsRequest(params.with);
+    if (params.start.isValid()) {
+        retrieveTag.setAttribute("start", DateTimeToXMPP(params.start));
+    }
+    if (params.end.isValid()) {
+        retrieveTag.setAttribute("end", DateTimeToXMPP(params.end));
+    }
+    retrieveTag.appendChild( uniformRsm(params.after) );
+    QDomElement iq = createIQ(doc(), "get", "", client()->genUniqueId());
+    iq.appendChild(retrieveTag);
     return iq;
 }
 
@@ -226,6 +244,15 @@ QDomElement JT_Archive::uniformRsmMax(uint max)
 QDomElement JT_Archive::uniformSkeletonCollectionsRequest(const QString &with)
 {
     QDomElement skeleton = uniformArchivingNS("list");
+    if (!with.isEmpty()) {
+        skeleton.setAttribute("with", with);
+    }
+    return skeleton;
+}
+
+QDomElement JT_Archive::uniformSkeletonChatsRequest(const QString &with)
+{
+    QDomElement skeleton = uniformArchivingNS("retrieve");
     if (!with.isEmpty()) {
         skeleton.setAttribute("with", with);
     }
@@ -341,7 +368,9 @@ bool JT_Archive::handleMethodTag(const QDomElement &methodTag)
 static QDomElement findRSMTag(const QDomElement &tag, bool *found)
 {
     QDomElement rsmTag = tag.tagName() == "set" ? tag : findSubTag(tag, "set", 0);
-    *found = rsmTag.attribute("xmlns") == JT_Archive::ResultSetManagementNS;
+    if (found) {
+        *found = rsmTag.attribute("xmlns") == JT_Archive::ResultSetManagementNS;
+    }
     return rsmTag;
 }
 
@@ -362,7 +391,7 @@ JT_Archive::RSMInfo JT_Archive::parseRSM(const QDomElement &elem)
 
 #define DOM_FOREACH(var, domElement) for(QDomNode var = domElement.firstChild(); !var.isNull(); var = var.nextSibling())
 
-QList<JT_Archive::ChatInfo> JT_Archive::parseChatInfo(const QDomElement &tags)
+QList<JT_Archive::ChatInfo> JT_Archive::parseChatsInfo(const QDomElement &tags)
 {
     QList<ChatInfo> list;
     DOM_FOREACH(chatTag, tags) {
@@ -403,8 +432,45 @@ bool JT_Archive::writePref(const QDomElement &elem)
 bool JT_Archive::collectionsListReceived(const QDomElement &listTag)
 {
     RSMInfo rsmInfo = parseRSM(listTag);
-    QList<ChatInfo> list = parseChatInfo(listTag);
+    QList<ChatInfo> list = parseChatsInfo(listTag);
     emit collectionsReceived(list, rsmInfo);
+    return true;
+}
+
+static inline bool isChatTag(const QDomElement &tag)
+{
+    return tag.tagName() == "chat";
+}
+
+static inline KDateTime fromSeconds(quint64 seconds)
+{
+    return KDateTime(QDateTime::fromMSecsSinceEpoch(seconds * 1000));
+}
+
+static QList<JT_Archive::ChatItem> parseChatItems(const QDomElement &tags)
+{
+    QList<JT_Archive::ChatItem> list;
+    list.reserve(tags.childNodes().count());
+    DOM_FOREACH(tag, tags) {
+        QDomElement currentTag = tag.toElement();
+        if (currentTag.tagName() == "to" || currentTag.tagName() == "from") {
+            JT_Archive::ChatItem item;
+            item.isIncoming = currentTag.tagName() != "to";
+            item.time = fromSeconds(currentTag.attribute("utc_secs").toULongLong());
+            item.body = currentTag.text();
+            list.append(item);
+        }
+    }
+    return list;
+}
+
+bool JT_Archive::chatReceived(const QDomElement &retrieveTag)
+{
+    qDebug() << "chatReceived";
+    RSMInfo rsmInfo = parseRSM(retrieveTag);
+    QList<ChatItem> list = parseChatItems(retrieveTag);
+    qDebug() << "Emit chatReceived";
+    emit chatReceived(list, rsmInfo);
     return true;
 }
 
