@@ -121,12 +121,21 @@ JabberEditAccountWidget::JabberEditAccountWidget (JabberProtocol * proto, Jabber
 	}
 
     // Setup automatic archiving settings in accordance with server settings
-    if (account()->isConnected()) {
-        ArchivingPreferences->setEnabled(true);
-        initAutomaticArchiving();
+    XMPP::Task *root = account()->client()->rootTask();
+    if (root) {
+        m_archiveManager = new JT_Archive(root);
+        if (account()->isConnected()) {
+            slotConnected();
+        } else {
+            // Hideout all the setting because automatic archiving is mainly a server-side thing
+            slotDisconnected();
+        }
+
+        connect(account()->client(), SIGNAL(connected()), SLOT(slotConnected()));
+        connect(account()->client(), SIGNAL(csDisconnected()), SLOT(slotDisconnected()));
     } else {
-        // Hideout all the setting because automatic archiving is mainly a server-side thing
-        //ArchivingPreferences->setEnabled(false);
+        m_archiveManager = 0;
+        slotDisconnected();
     }
 }
 
@@ -468,16 +477,23 @@ void JabberEditAccountWidget::slotPrivacyListsClicked()
     dialog->show();
 }
 
-void JabberEditAccountWidget::initAutomaticArchiving()
+void JabberEditAccountWidget::slotConnected()
 {
-    // We hide those groups until preferences are delivered via signal-slot mechanism
+    initAutomaticArchiving();
+}
+
+void JabberEditAccountWidget::slotDisconnected()
+{
     AAEnableCheckBox->setEnabled(false);
     AASavePolicyBox->setEnabled(false);
     AARemoteStorageBox->setEnabled(false);
     AALocalStorageBox->setEnabled(false);
+}
 
-    XMPP::Task *root = account()->client()->rootTask();
-    m_archiveManager = new JT_Archive(root);
+void JabberEditAccountWidget::initAutomaticArchiving()
+{
+    // We hide those groups until preferences are delivered via signal-slot mechanism
+    slotDisconnected();
 
     connect(m_archiveManager, SIGNAL(automaticArchivingEnable(bool,JT_Archive::AutoScope)),
             SLOT(slotAutomaticArchivingEnable(bool,JT_Archive::AutoScope)));
@@ -487,6 +503,8 @@ void JabberEditAccountWidget::initAutomaticArchiving()
             SLOT(slotArchivingMethodChanged(JT_Archive::MethodType,JT_Archive::MethodUse)));
 
     m_archiveManager->requestPrefs();
+    JT_Archive::CollectionsRequest request("me@jtalk.me");
+    m_archiveManager->requestCollections(request);
 }
 
 void JabberEditAccountWidget::updateArchiveManager()
@@ -503,7 +521,6 @@ void JabberEditAccountWidget::updateArchiveManager()
 void JabberEditAccountWidget::slotAutomaticArchivingEnable(bool isEnabled,JT_Archive::AutoScope scope)
 {
     Q_UNUSED(scope)
-    qDebug("enabled");
     AAEnableCheckBox->setEnabled(true);
     AAEnableCheckBox->setChecked(isEnabled);
 }
@@ -512,14 +529,12 @@ void JabberEditAccountWidget::slotDefaultPreferenceChanged(JT_Archive::DefaultSa
 {
     Q_UNUSED(otr)
     Q_UNUSED(expire)
-    qDebug("prefsChanged");
     AASavePolicyBox->setEnabled(true);
     AASavePolicyBox->setCurrentIndex((int)saveMode);
 }
 
 void JabberEditAccountWidget::slotArchivingMethodChanged(JT_Archive::MethodType method,JT_Archive::MethodUse use)
 {
-    qDebug("MethodChanged");
     QComboBox *neededBox = 0;
     switch (method) {
     case JT_Archive::MethodType_auto: neededBox = AARemoteStorageBox; break;
